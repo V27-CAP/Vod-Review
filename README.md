@@ -2,6 +2,12 @@
 
 A local review desk for editors clipping long livestreams. Load a VOD, rank moments, play the proposed ranges, trim and approve them, then open the selects sequence in Adobe Premiere Pro. The browser interface supports Brazilian Portuguese and English.
 
+## Baixar para Windows
+
+Abra [VODCut-Studio.exe](https://github.com/V27-CAP/Vod-Review/blob/main/downloads/VODCut-Studio.exe) e clique em **Download** no GitHub. Entre com a conta que tem acesso a este repositório privado.
+
+O arquivo tem 418 MB e inclui Python, FFmpeg e o modelo Whisper. No Windows de 64 bits, dê dois cliques no executável e aguarde a extração inicial. Reserve pelo menos 1,2 GB livres. A [prévia da interface](downloads/VODCut-Interface.png) mostra os três temas.
+
 ## Windows 10 setup from source
 
 1. Install **64-bit Python 3.11 or 3.12** from python.org, including the Windows Python launcher and Tcl/Tk.
