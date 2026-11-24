@@ -1,0 +1,257 @@
+<!doctype html>
+
+<html data-theme="red" lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width,initial-scale=1" name="viewport" />
+    <meta content="#151618" name="theme-color" />
+    <title>VODCut Studio</title>
+    <link href="/style.css" rel="stylesheet" />
+    <script defer="" src="/app.js"></script>
+  </head>
+  <body class="welcome">
+    <header>
+      <div class="brand">
+        <i class="mark"></i>VOD<span>Cut</span><small>STUDIO</small>
+      </div>
+      <div class="topright">
+        <span class="online"><i></i><b data-t="local"></b></span>
+        <fieldset id="themes">
+          <legend data-t="appearance"></legend>
+          <label
+            ><input
+              checked=""
+              name="appearance"
+              type="radio"
+              value="red" /><span data-t="red"></span></label
+          ><label
+            ><input name="appearance" type="radio" value="dark" /><span
+              data-t="dark"
+            ></span></label
+          ><label
+            ><input name="appearance" type="radio" value="light" /><span
+              data-t="light"
+            ></span
+          ></label>
+        </fieldset>
+        <button aria-label="Language / Idioma" id="lang">EN</button>
+      </div>
+    </header>
+    <main>
+      <div hidden="" id="notice" role="status"></div>
+      <div hidden="" id="jobs"></div>
+      <section id="welcome">
+        <div class="mast">
+          <div class="hero-copy">
+            <h1><span data-t="hero1"></span><br /><em data-t="hero2"></em></h1>
+
+            <div class="hero-action">
+              <p data-t="intro"></p>
+              <button class="primary" id="start">
+                <i data-icon="folder"></i
+                ><span data-t="startHere"></span></button
+              ><small>MP4 · MKV · MOV</small>
+            </div>
+          </div>
+        </div>
+        <div class="flowhead">
+          <h2 data-t="workflow"></h2>
+          <span></span>
+        </div>
+        <ol class="flow">
+          <li>
+            <div class="stepIcon tone1"><i data-icon="folder"></i></div>
+            <div>
+              <small data-t="step1"></small>
+              <h3 data-t="loadStep"></h3>
+              <p data-t="loadStepHelp"></p>
+            </div>
+          </li>
+          <li>
+            <div class="stepIcon tone2"><i data-icon="cut"></i></div>
+            <div>
+              <small data-t="step2"></small>
+              <h3 data-t="reviewStep"></h3>
+              <p data-t="reviewStepHelp"></p>
+            </div>
+          </li>
+          <li>
+            <div class="stepIcon tone3"><i data-icon="out"></i></div>
+            <div>
+              <small data-t="step3"></small>
+              <h3 data-t="exportStep"></h3>
+              <p data-t="exportStepHelp"></p>
+            </div>
+          </li>
+        </ol>
+      </section>
+      <div class="heading">
+        <div>
+          <h1 data-t="desk"></h1>
+          <p class="helper" id="reviewHint"></p>
+        </div>
+        <div class="actions">
+          <button disabled="" id="export">
+            <i data-icon="out"></i><span data-t="export"></span></button
+          ><button class="primary" id="import">
+            <i data-icon="plus"></i><span data-t="import"></span>
+          </button>
+        </div>
+      </div>
+      <div class="grid">
+        <section class="monitor panel">
+          <div class="panelhead">
+            <h2><i data-icon="monitor"></i><span data-t="monitor"></span></h2>
+            <span class="mono muted" id="format">—</span>
+          </div>
+          <div class="screen" id="screen">
+            <div class="frame tl"></div>
+            <div class="frame tr"></div>
+            <div class="frame bl"></div>
+            <div class="frame br"></div>
+            <div id="emptyScreen">
+              <h3 data-t="emptyMonitor"></h3>
+              <p data-t="emptyMonitorSub"></p>
+            </div>
+            <video controls="" hidden="" id="video" preload="metadata"></video>
+          </div>
+          <div class="scrub">
+            <div class="trackmeta">
+              <span data-t="signal"></span
+              ><span class="mono" id="timecode">00:00:00</span>
+            </div>
+            <canvas aria-label="Timeline" id="wave" role="img"></canvas>
+            <div class="ruler">
+              <span>00:00:00</span><span id="total">--:--:--</span>
+            </div>
+          </div>
+        </section>
+        <section class="queue panel">
+          <div class="panelhead">
+            <h2><i data-icon="stack"></i><span data-t="queue"></span></h2>
+            <span class="count" id="count">0</span>
+          </div>
+          <p class="queuehelp" data-t="queueHint"></p>
+          <div id="tabs"></div>
+          <div id="cards"></div>
+        </section>
+      </div>
+      <section class="panel" id="inspector">
+        <div class="panelhead">
+          <h2><i data-icon="sliders"></i><span data-t="inspector"></span></h2>
+          <span class="mono muted" id="clipid"></span>
+        </div>
+        <div id="editor"></div>
+      </section>
+      <footer>
+        <span class="footbrand">VODCut Studio</span><span id="source"></span>
+      </footer>
+    </main>
+    <dialog aria-labelledby="setupTitle" id="setup">
+      <form id="setupform">
+        <div class="modalhead">
+          <h2 data-t="import" id="setupTitle"></h2>
+          <button aria-label="Close" class="close" type="button">×</button>
+        </div>
+        <p class="dialogintro" data-t="setupIntro"></p>
+        <label
+          ><span data-t="source"></span>
+          <div class="pathrow">
+            <input
+              id="path"
+              placeholder="D:\Livestreams\vod.mp4"
+              required=""
+            /><button
+              data-pick="video"
+              data-t="browse"
+              type="button"
+            ></button></div></label
+        ><label
+          ><span data-t="chatfile"></span>
+          <div class="pathrow">
+            <input id="chat" placeholder=".json / .csv" /><button
+              data-pick="chat"
+              data-t="browse"
+              type="button"
+            ></button></div
+        ></label>
+        <details class="advanced">
+          <summary data-t="advanced"></summary>
+          <p data-t="advancedHint"></p>
+          <fieldset>
+            <legend data-t="modules"></legend>
+            <div class="checks" id="modules"></div>
+          </fieldset>
+          <div class="three">
+            <label
+              ><span data-t="limit"></span
+              ><input
+                id="top_n"
+                max="250"
+                min="1"
+                required=""
+                type="number" /></label
+            ><label
+              ><span data-t="min"></span
+              ><input
+                id="min_seconds"
+                max="900"
+                min="1"
+                required=""
+                type="number" /></label
+            ><label
+              ><span data-t="max"></span
+              ><input
+                id="max_seconds"
+                max="900"
+                min="1"
+                required=""
+                type="number"
+            /></label>
+          </div>
+        </details>
+        <p class="error" role="alert"></p>
+        <button class="primary wide" data-t="analyze"></button>
+      </form>
+    </dialog>
+    <dialog aria-labelledby="deliveryTitle" id="delivery">
+      <form id="deliveryform">
+        <div class="modalhead">
+          <h2 data-t="export" id="deliveryTitle"></h2>
+          <button aria-label="Close" class="close" type="button">×</button>
+        </div>
+        <p id="summary"></p>
+        <fieldset>
+          <legend data-t="format"></legend>
+          <div class="checks">
+            <label
+              ><input checked="" type="checkbox" value="xml" /><span
+                ><b data-t="fmtxml"></b
+                ><small data-t="helpxml"></small></span></label
+            ><label
+              ><input type="checkbox" value="mp4" /><span
+                ><b data-t="fmtmp4"></b
+                ><small data-t="helpmp4"></small></span></label
+            ><label
+              ><input type="checkbox" value="csv" /><span
+                ><b data-t="fmtcsv"></b
+                ><small data-t="helpcsv"></small></span></label
+            ><label
+              ><input type="checkbox" value="json" /><span
+                ><b data-t="fmtjson"></b><small data-t="helpjson"></small></span
+            ></label>
+          </div>
+        </fieldset>
+        <label
+          ><span data-t="sequence"></span
+          ><select id="vertical">
+            <option data-t="match" value="0"></option>
+            <option value="1">1080 × 1920</option>
+          </select></label
+        >
+        <p class="error" role="alert"></p>
+        <button class="primary wide" data-t="export"></button>
+      </form>
+    </dialog>
+  </body>
+</html>

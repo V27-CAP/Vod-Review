@@ -1,0 +1,62 @@
+[analysis]
+chunk_seconds = 180
+model = "base"
+language = "auto"
+cpu_threads = 4
+beam_size = 3
+transcription = true
+audio = true
+visual = false
+chat = true
+judge = false
+
+[features]
+sample_rate = 16000
+silence_db = -43
+visual_step = 3
+baseline_seconds = 45
+floor_percentile = 50
+ceiling_percentile = 97
+speech_gap = 1.4
+chat_bin_seconds = 5
+chat_delay_seconds = 3
+peak_window = 5
+vocal_floor_db = -55
+vocal_range_db = 35
+vocal_pulses = 5
+vocal_zcr_scale = 15
+vocal_peak_scale = 2
+reaction_hits = 2
+laughter_pattern = 'k{3,}|(?:ha){2,}|(?:ja){3,}|www+|笑|草|\b(?:kekw|lulw?|lmao|absolutely|lol|pog(?:champ)?)\b'
+reaction_pattern = 'what|wait|no way|oh no|meu deus|não acredito|pera|socorro|nossa|caraca|うそ|やば|まじ|えっ|[!?！？]|(?:ha){2,}|笑'
+
+[weights]
+loudness = 0.14
+change = 0.13
+vocal = 0.13
+transcript = 0.28
+chat_rate = 0.09
+chat_laugh = 0.10
+chat_users = 0.09
+motion = 0.04
+
+[clips]
+min_seconds = 15
+max_seconds = 90
+pre_roll = 14
+post_roll = 9
+snap_seconds = 6
+top_n = 20
+min_score = 0.16
+context_bonus = 0.15
+context_window = 18
+
+[judge]
+# A locally running OpenAI-compatible chat completions server.
+endpoint = "http://127.0.0.1:1234/v1/chat/completions"
+model = "local-model"
+key_env = "VODCUT_JUDGE_KEY"
+shortlist = 12
+blend = 0.30
+understandability_weight = 2.0
+timeout = 45
