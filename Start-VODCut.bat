@@ -1,10 +1,10 @@
 @echo off
 setlocal
-cd /d "%~dp0"
-if not exist ".venv\Scripts\python.exe" (
-  echo Run Setup-Windows.bat first.
-  pause
-  exit /b 1
+set "app=%~dp0downloads\VODCut-Studio.exe"
+if exist "%app%" for %%F in ("%app%") do if %%~zF GTR 1000000 (
+  start "" "%app%"
+  exit /b 0
 )
-".venv\Scripts\python.exe" -m vodcut serve
-if errorlevel 1 pause
+echo Baixe VODCut-Studio.exe na pasta downloads do repositorio e abra o arquivo.
+pause
+exit /b 1

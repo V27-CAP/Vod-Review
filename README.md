@@ -1,19 +1,27 @@
 # VODCut Studio
 
-A local review desk for editors clipping long livestreams. Load a VOD, rank moments, play the proposed ranges, trim and approve them, then open the selects sequence in Adobe Premiere Pro. The browser interface supports Brazilian Portuguese and English.
+A local review desk for editors clipping long livestreams. Load a VOD, rank moments, play the proposed ranges, trim and approve them, then open the selects sequence in Adobe Premiere Pro. The native Windows application supports Brazilian Portuguese and English.
 
 ## Baixar para Windows
 
 Abra [VODCut-Studio.exe](https://github.com/V27-CAP/Vod-Review/blob/main/downloads/VODCut-Studio.exe) e clique em **Download** no GitHub. Entre com a conta que tem acesso a este repositório privado.
 
-O arquivo tem 418 MB e inclui Python, FFmpeg e o modelo Whisper. No Windows de 64 bits, dê dois cliques no executável e aguarde a extração inicial. Reserve pelo menos 1,2 GB livres. A [prévia da interface](downloads/VODCut-Interface.png) mostra os três temas.
+1. Feche a versão anterior do VODCut e dê dois cliques no novo **VODCut-Studio.exe**.
+2. Clique em **Escolher vídeo…**. Use **Procurar vídeo…** ou cole o caminho da gravação e clique em **Analisar vídeo**. Você também pode arrastar um vídeo para a janela.
+3. Selecione um destaque para ver a prévia, ajustar o nome e os tempos e aprovar o corte. **Exportar aprovados…** gera XML para o Premiere, MP4, CSV ou JSON. O menu **Aparência** oferece vermelho, escuro e branco.
 
-## Windows 10 setup from source
+A janela usa controles nativos do Windows e abre diretamente pelo executável. Python, FFmpeg e Whisper só entram em ação quando você solicita uma operação. O pacote também inclui um reprodutor de prévia para computadores sem o codec do Windows. A primeira análise prepara as ferramentas locais e reutiliza a instalação da versão anterior quando disponível. Reserve 1,4 GB livres para as ferramentas, além do espaço para seus vídeos e cortes. [Ver a interface do aplicativo](downloads/VODCut-Interface.png)
+
+### Rebuild the native Windows executable
+
+With Git LFS installed, run `git lfs pull` to fetch the packaged offline runtime. With Go 1.23+ and Python 3.11+ on PATH, run `python launcher/package.py downloads/VODCut-Studio.exe build/VODCut-Studio.exe`. This embeds the native desktop code and worker with the exact runtime ZIP, so the Windows app recognizes earlier installations. The Common Controls manifest is in `launcher/studio.manifest`. Regenerate its Go resource after changing it with `rsrc -arch amd64 -manifest studio.manifest -o resource_windows_amd64.syso` in the launcher directory.
+
+## Optional Python CLI and browser interface from source
 
 1. Install **64-bit Python 3.11 or 3.12** from python.org, including the Windows Python launcher and Tcl/Tk.
 2. Install a **full FFmpeg build** with FFprobe, H.264 encoding (libx264) and AAC. With Windows Package Manager, run `winget install --id Gyan.FFmpeg -e`. Alternatively, unpack a Windows build linked from ffmpeg.org/download.html and add its `bin` directory to your user PATH. Open a new Command Prompt and check both `ffmpeg -version` and `ffprobe -version`.
 3. Extract the entire ZIP to a writable folder, for example `D:\Tools\VODCut`. Double-click **Setup-Windows.bat** once. It creates a private Python environment, installs the packages and downloads the multilingual Whisper base model. Initial setup needs internet access. To use a different model, edit `config.toml` before setup.
-4. Double-click **Start-VODCut.bat**. Leave its console open while working. The browser opens at `http://127.0.0.1:8765`. If the browser does not open, enter that address manually. Press Ctrl+C in the console to stop the server.
+4. To explicitly start the optional browser interface for development, run `.venv\Scripts\python -m vodcut serve`. The desktop EXE uses direct process communication and starts without an HTTP service.
 5. Choose **Carregar VOD / Load VOD**. Browse to an MP4, MKV or MOV, or paste its full path. Add a chat file if available. Select signals and duration limits, then start analysis. Choose **EN** or **PT** in the header to switch languages.
 
 Analysis uses local files and CPU INT8 inference, including on a machine with an AMD RX 570. The local server binds to loopback. The browser uses bundled assets and accesses the video through the local backend. Disk space and processing time are the practical constraints. A four-hour recording uses about 461 MB of PCM cache and an eight-hour recording uses about 922 MB, plus previews, transcripts, model weights and any requested exports.
@@ -104,6 +112,7 @@ CLI detection prints candidates as JSON on stdout and progress on stderr. Thumbn
 | --- | --- |
 | vodcut/media.py | FFprobe source metadata, FFmpeg PCM blocks, local multilingual word timestamps |
 | vodcut/signals.py, detector.py | Cached acoustic and optional visual features, normalized ranking, natural boundaries and thumbnails |
+| launcher/ | Native Win32 desktop, on-demand processing worker and portable EXE packager |
 | vodcut/server.py, web/ | Loopback FastAPI service, persistent review and bilingual browser interface |
 | vodcut/export.py | Validated xmeml v4, CSV, JSON and source-framed MP4 rendering |
 | vodcut/chat.py, judge.py, evaluate.py | Streaming chat adapters, optional local judging and evaluation |

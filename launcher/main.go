@@ -3,7 +3,7 @@ package main
 
 import (
 	"archive/zip"
-	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
+
 	"syscall"
 	"unsafe"
 )
@@ -50,7 +50,7 @@ func extractFile(entry *zip.File, dest string) error {
 	return errors.Join(err, out.Close())
 }
 
-func unpack(dest string) error {
+func unpack(ctx context.Context, dest string, progress func(string, int)) error {
 	fileName, err := os.Executable()
 	if err != nil {
 		return err
@@ -86,19 +86,25 @@ func unpack(dest string) error {
 	}
 	next := 10
 	for _, entry := range archive.File {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := extractFile(entry, dest); err != nil {
 			return fmt.Errorf("%s: %w", entry.Name, err)
 		}
 		done += entry.UncompressedSize64
 		if int(done*100/total) >= next {
-			fmt.Fprintf(os.Stderr, "  %d%%\n", next)
+			progress("install", next)
 			next += 10
 		}
 	}
 	return os.WriteFile(filepath.Join(dest, ".installed"), []byte(payloadHash), 0644)
 }
 
-func install() (string, error) {
+func install(ctx context.Context, progress func(string, int)) (string, error) {
+	if len(payloadHash) != 64 {
+		return "", errors.New("Este executável precisa do pacote de ferramentas. Use a versão de downloads.")
+	}
 	base, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
@@ -136,8 +142,8 @@ func install() (string, error) {
 		return "", err
 	}
 	defer os.RemoveAll(stage)
-	fmt.Fprintln(os.Stderr, "Preparando VODCut Studio neste computador...")
-	if err = unpack(stage); err != nil {
+	progress("install", 0)
+	if err = unpack(ctx, stage, progress); err != nil {
 		return "", err
 	}
 	if err = os.Rename(stage, release); err != nil {
@@ -146,38 +152,35 @@ func install() (string, error) {
 	return release, nil
 }
 
-func start() error {
-	dir, err := install()
-	if err != nil {
-		return err
-	}
+func interpreter(dir string, args ...string) *exec.Cmd {
 	python := filepath.Join(dir, "python", "python.exe")
-	args := os.Args[1:]
-	module := "vodcut"
-	if len(args) == 0 {
-		args = []string{"serve"}
-		fmt.Println("VODCut Studio  |  Mantenha esta janela aberta durante a edição.")
-	} else if args[0] == "evaluate" {
-		module = "vodcut.evaluate"
-		args = args[1:]
-	}
-	args = append([]string{"-X", "utf8", "-B", "-m", module}, args...)
-	cmd := exec.Command(python, args...)
-	cmd.Env = append(os.Environ(), "PATH="+filepath.Join(dir, "bin")+";"+filepath.Join(dir, "python")+";"+os.Getenv("PATH"),
+	cmd := exec.Command(python, append([]string{"-X", "utf8", "-B"}, args...)...)
+	cmd.Env = append(os.Environ(), "PATH="+filepath.Join(dir, "bin")+";"+filepath.Dir(python)+";"+os.Getenv("PATH"),
 		"KMP_AFFINITY=disabled", "KMP_TOPOLOGY_METHOD=flat", "HF_HUB_OFFLINE=1", "HF_HUB_DISABLE_TELEMETRY=1", "PYTHONUTF8=1", "PYTHONDONTWRITEBYTECODE=1")
-	// The embedded interpreter is isolated from machine-wide Python installations.
-	cmd.Stdout, cmd.Stderr, cmd.Stdin = os.Stdout, os.Stderr, os.Stdin
-	return cmd.Run()
+	return cmd
 }
 
 func main() {
-	kernel.NewProc("SetConsoleOutputCP").Call(65001)
-	if err := start(); err != nil {
-		fmt.Fprintln(os.Stderr, "VODCut Studio:", strings.TrimSpace(err.Error()))
-		if len(os.Args) == 1 {
-			fmt.Fprintln(os.Stderr, "Pressione Enter para fechar.")
-			bufio.NewReader(os.Stdin).ReadString('\n')
+	if len(os.Args) > 1 {
+		dir, err := install(context.Background(), func(string, int) {})
+		if err == nil {
+			args, module := os.Args[1:], "vodcut"
+			if args[0] == "evaluate" {
+				module = "vodcut.evaluate"
+				args = args[1:]
+			}
+			cmd := interpreter(dir, append([]string{"-m", module}, args...)...)
+			cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+			err = cmd.Run()
 		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if err := desktop(); err != nil {
+		message(err.Error())
 		os.Exit(1)
 	}
 }
