@@ -111,7 +111,9 @@ def rank(
                     target["merged_peaks"] = merged
                     if merged <= 4:
                         target["score"] = round(min(1.0, target["score"] + 0.025), 4)
-                continue
+                    continue
+        if len(clips) >= c["top_n"]:
+            continue
         if any(a < x["end"] and b > x["start"] for x in clips):
             continue
         parts = {k: round(float(v[p]), 4) for k, v in active.items()}
@@ -134,7 +136,7 @@ def rank(
                 thumbnail=f"p{p}.jpg",
             )
         )
-        if len(clips) >= c["top_n"]:
+        if not merge_gap and len(clips) >= c["top_n"]:
             break
     if merge_gap > 0:
         clips.sort(key=lambda x: -x["score"])
@@ -233,12 +235,16 @@ def detect(
         }
         clip.update(classify_clip(clip, lang=output_lang))
     if cfg["analysis"]["judge"]:
-        from .judge import rerank
+        from copy import deepcopy
+        from .judge import JudgeUnavailable, rerank
 
         judge_cfg = dict(cfg["judge"])
         judge_cfg.setdefault("output_language", output_lang)
         judge_cfg.setdefault("style", preset_name)
-        clips = rerank(clips, judge_cfg, root, progress, meta=meta, facecam=facecam_roi)
+        try:
+            clips = rerank(deepcopy(clips), judge_cfg, root, progress, meta=meta, facecam=facecam_roi)
+        except JudgeUnavailable:
+            meta["ai_unavailable"] = True
     for i, clip in enumerate(clips):
         progress("rank", i / max(1, len(clips)))
         thumb = root / "thumbs" / clip["thumbnail"]

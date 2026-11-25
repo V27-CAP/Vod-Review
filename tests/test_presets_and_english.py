@@ -54,6 +54,46 @@ class PresetsAndEnglishTests(unittest.TestCase):
         ordered = sorted(clips, key=lambda c: c["start"])
         self.assertLessEqual(ordered[0]["end"], ordered[1]["start"])
 
+    def test_single_highlight_finishes_scene(self):
+        cfg = config()
+        apply_preset(cfg, "best_moments")
+        audio = np.zeros(300)
+        audio[[50, 72, 95, 220]] = 1
+        cfg["clips"]["top_n"] = 1
+        clips, _ = rank({"loudness": audio}, [], [], [], 300, cfg)
+        self.assertEqual(len(clips), 1)
+        self.assertGreater(clips[0]["end"], 95)
+
+    def test_neighbor_that_exceeds_merge_limit_remains_a_candidate(self):
+        cfg = config()
+        apply_preset(cfg, "funny_moments")
+        audio = np.zeros(300)
+        audio[[50, 64, 78, 92]] = 1
+        clips, _ = rank({"loudness": audio}, [], [], [], 300, cfg)
+        self.assertEqual(len(clips), 2)
+        self.assertTrue(any(c["start"] <= 92 < c["end"] for c in clips))
+
+    def test_disconnected_ai_preserves_local_results(self):
+        from vodcut import detector
+        cfg = config()
+        cfg["analysis"].update(judge=True, visual=False, facecam=False)
+        cfg["judge"].update(provider="lmstudio", endpoint="http://127.0.0.1:1234/v1/chat/completions")
+        segments = [{"start": 15., "end": 18., "text": "OH MY GOD [screaming]"}]
+        with tempfile.TemporaryDirectory() as tmp:
+            video = Path(tmp) / "vod.mkv"
+            video.touch()
+            with (
+                mock.patch.object(detector, "CACHE", Path(tmp)),
+                mock.patch.object(detector, "probe", return_value={"duration": 60, "video_index": 0}),
+                mock.patch.object(detector, "prepare", return_value=([], segments)),
+                mock.patch.object(detector, "ffmpeg"),
+                mock.patch.object(AIJudge, "rate", side_effect=ConnectionRefusedError()),
+            ):
+                result = detector.detect(video, cfg)
+                self.assertTrue(result["meta"]["ai_unavailable"])
+                cfg["analysis"]["judge"] = False
+                self.assertEqual(result["clips"], detector.detect(video, cfg)["clips"])
+
     def test_english_reaction_pattern_precision_and_span(self):
         cfg = config()
         segments = [

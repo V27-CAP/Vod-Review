@@ -38,13 +38,14 @@ type FacecamROI struct {
 }
 
 type VideoMeta struct {
-	Path        string       `json:"path"`
-	Duration    float64      `json:"duration"`
-	Width       int          `json:"width"`
-	Height      int          `json:"height"`
-	Channels    int          `json:"channels"`
-	AudioTracks []AudioTrack `json:"audio_tracks"`
-	Facecam     *FacecamROI  `json:"facecam,omitempty"`
+	AIUnavailable bool         `json:"ai_unavailable"`
+	Path          string       `json:"path"`
+	Duration      float64      `json:"duration"`
+	Width         int          `json:"width"`
+	Height        int          `json:"height"`
+	Channels      int          `json:"channels"`
+	AudioTracks   []AudioTrack `json:"audio_tracks"`
+	Facecam       *FacecamROI  `json:"facecam,omitempty"`
 }
 
 type ProbeResult struct {

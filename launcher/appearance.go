@@ -333,7 +333,7 @@ func (u *desk) preferences() {
 		Label{Text: t("Aparência", "Appearance"), Font: font(18, true)},
 		Label{Text: t("Tema do aplicativo", "App theme")}, ComboBox{AssignTo: &theme, Model: []string{t("Vermelho", "Red"), t("Escuro", "Dark"), t("Branco", "Light")}, CurrentIndex: ti},
 		Label{Text: t("Idioma", "Language")}, ComboBox{AssignTo: &lang, Model: []string{"Português", "English"}, CurrentIndex: li},
-		PushButton{Text: t("Configurar IA…", "Configure AI…"), OnClicked: func() { u.aiConfigDialog(dlg) }},
+
 		Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{HSpacer{}, PushButton{AssignTo: &cancel, Text: t("Cancelar", "Cancel"), OnClicked: func() { dlg.Cancel() }}, PushButton{AssignTo: &save, Text: t("Aplicar", "Apply"), OnClicked: func() { ti, li = theme.CurrentIndex(), lang.CurrentIndex(); dlg.Accept() }}}},
 	}}).Run(u.mw)
 	if err != nil {

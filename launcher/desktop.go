@@ -364,6 +364,7 @@ func (u *desk) build() error {
 }
 func (u *desk) showEditor(post bool) {
 	u.postOpen = post
+	u.switchPage.SetVisible(post)
 	u.cutFields.SetVisible(!post)
 	u.postFields.SetVisible(post)
 	if post {

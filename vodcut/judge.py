@@ -322,6 +322,10 @@ def _call_provider(provider: Judge, text: str, image_path: Path | None, clip: di
     return provider.rate(text, **kwargs)
 
 
+class JudgeUnavailable(ValueError):
+    pass
+
+
 def rerank(
     clips: list,
     cfg: dict,
@@ -379,7 +383,7 @@ def rerank(
         try:
             r = cache(cache_path, lambda: _call_provider(provider, c.get("transcript", ""), image_path, c))
         except (OSError, ValueError, KeyError, IndexError, TypeError, urllib.error.URLError) as error:
-            raise ValueError(
+            raise JudgeUnavailable(
                 f"AI judge unavailable ({error}). Check AI settings or disable the AI option."
             ) from error
         weight = cfg["understandability_weight"]

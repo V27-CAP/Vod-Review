@@ -438,8 +438,9 @@ func (u *desk) exportDialog() {
 	}
 	children := []Widget{Label{Text: u.t("Exportar cortes aprovados", "Export approved clips"), Font: font(14, true)}}
 	for i, label := range labels {
-		children = append(children, CheckBox{AssignTo: &checks[i], Text: label, Checked: i == 0 || i == 1})
+		children = append(children, CheckBox{AssignTo: &checks[i], Text: label, Checked: i == 0})
 	}
+	children = append(children, PushButton{Text: u.t("Editar texto do corte selecionado…", "Edit selected clip’s post…"), OnClicked: func() { d.Cancel(); u.showEditor(true) }})
 	var selected []string
 	portrait := false
 	children = append(children, CheckBox{AssignTo: &vertical, Text: u.t("Sequência do Premiere em 1080 × 1920", "1080 × 1920 Premiere sequence")},
@@ -560,6 +561,9 @@ func (u *desk) operate(req map[string]any) {
 				}
 				u.project = project
 				u.populate()
+				if req["action"] == "analyze" && project.Meta.AIUnavailable {
+					u.status.SetText(u.t("IA indisponível. Os cortes estão prontos com a análise local.", "AI unavailable. Your clips are ready using local analysis."))
+				}
 				return
 			}
 			u.status.SetText(u.t("Concluído.", "Completed."))

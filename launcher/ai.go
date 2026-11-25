@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sys/windows"
 	"os"
 	"path/filepath"
 	"strings"
+	"unsafe"
 
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
@@ -77,7 +80,27 @@ func isDefaultModel(v string) bool {
 func loadAISettings(path string) AISettings {
 	cfg := defaultAISettings()
 	if b, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(b, &cfg)
+		var stored struct {
+			AISettings
+			Protected string `json:"protected_key"`
+		}
+		stored.AISettings = cfg
+		if json.Unmarshal(b, &stored) == nil {
+			cfg = stored.AISettings
+			if stored.Protected != "" {
+				encrypted, err := base64.StdEncoding.DecodeString(stored.Protected)
+				if err == nil && len(encrypted) > 0 {
+					plain, err := protectKey(encrypted, false)
+					if err == nil {
+						cfg.APIKey = string(plain)
+					}
+				}
+			} else if cfg.APIKey != "" {
+				if err := saveAISettings(path, cfg); err != nil {
+					walk.MsgBox(nil, title, "Falha ao proteger a chave de IA. Salve novamente nas opções avançadas.", walk.MsgBoxIconWarning)
+				}
+			}
+		}
 	}
 	p, _ := providerByID(cfg.Provider)
 	cfg.Provider = p.id
@@ -90,15 +113,56 @@ func loadAISettings(path string) AISettings {
 	return cfg
 }
 
+func protectKey(data []byte, encrypt bool) ([]byte, error) {
+	input := windows.DataBlob{Size: uint32(len(data)), Data: &data[0]}
+	var output windows.DataBlob
+	var err error
+	if encrypt {
+		err = windows.CryptProtectData(&input, nil, nil, 0, nil, 1, &output)
+	} else {
+		err = windows.CryptUnprotectData(&input, nil, nil, 0, nil, 1, &output)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer windows.LocalFree(windows.Handle(unsafe.Pointer(output.Data)))
+	return append([]byte(nil), unsafe.Slice(output.Data, output.Size)...), nil
+}
+
 func saveAISettings(path string, cfg AISettings) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(cfg, "", "  ")
+	stored := struct {
+		AISettings
+		Protected string `json:"protected_key,omitempty"`
+	}{AISettings: cfg}
+	if cfg.APIKey != "" {
+		encrypted, err := protectKey([]byte(cfg.APIKey), true)
+		if err != nil {
+			return err
+		}
+		stored.Protected = base64.StdEncoding.EncodeToString(encrypted)
+	}
+	stored.APIKey = ""
+	b, err := json.MarshalIndent(stored, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0600)
+	f, err := os.CreateTemp(filepath.Dir(path), ".ai-settings-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	_, err = f.Write(b)
+	closeErr := f.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return os.Rename(f.Name(), path)
 }
 
 func (u *desk) aiSummary() string {
