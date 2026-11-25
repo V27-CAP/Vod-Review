@@ -188,7 +188,25 @@ def write_xml(path: Path, meta: dict, clips: list, vertical: bool) -> None:
     validate_xml(path)
 
 
+def _clock(seconds: float) -> str:
+    total = max(0, int(round(seconds)))
+    return f"{total // 3600:02d}:{(total // 60) % 60:02d}:{total % 60:02d}"
+
+
+def build_posts_text(clips: list) -> str:
+    from .classify import category_label, format_post
+
+    sections: list[str] = []
+    for i, c in enumerate(clips, 1):
+        cat = category_label(c.get("category", "funny"), "pt")
+        header = f"=== {i:02d}. {c['name']} [{cat}] ({_clock(c['start'])} - {_clock(c['end'])}) ==="
+        sections.append(header + "\n" + format_post(c, "pt"))
+    return "\n\n\n".join(sections) + ("\n" if sections else "")
+
+
 def deliver(project: dict, formats: list, vertical: bool, progress: Progress) -> Path:
+    from .classify import category_label, format_post, normalize_category, normalize_hashtags
+
     clips = sorted((c for c in project["clips"] if c["status"] == "approved"), key=lambda c: c["start"])
     if not clips:
         raise ValueError("No approved clips")
@@ -203,14 +221,42 @@ def deliver(project: dict, formats: list, vertical: bool, progress: Progress) ->
         progress("export", 0)
         if "xml" in formats:
             write_xml(temp / "sequence.xml", meta, clips, vertical)
-        rows = [{k: c[k] for k in ("start", "end", "name", "score", "peak")} for c in clips]
+        json_rows = []
+        csv_rows = []
+        for c in clips:
+            cat = normalize_category(c.get("category", "funny"))
+            cats = [normalize_category(x) for x in (c.get("categories") or [cat])]
+            tags = normalize_hashtags(c.get("hashtags"), cat)
+            post = format_post(c, "pt")
+            base_row = dict(
+                start=c["start"],
+                end=c["end"],
+                name=c["name"],
+                score=c["score"],
+                peak=c["peak"],
+                category=cat,
+                category_label=category_label(cat, "pt"),
+                context_note=c.get("context_note", ""),
+                description=c.get("description", ""),
+            )
+            json_rows.append(dict(base_row, categories=cats, hashtags=tags, post=post))
+            csv_rows.append(
+                dict(
+                    base_row,
+                    categories=", ".join(category_label(x, "pt") for x in cats),
+                    hashtags=" ".join(tags),
+                    post=post,
+                )
+            )
+        if "posts" in formats:
+            (temp / "posts.txt").write_text(build_posts_text(clips), encoding="utf-8")
         if "json" in formats:
-            save(temp / "clips.json", rows)
+            save(temp / "clips.json", json_rows)
         if "csv" in formats:
             with (temp / "clips.csv").open("w", encoding="utf-8-sig", newline="") as out:
-                writer = csv.DictWriter(out, fieldnames=list(rows[0]))
+                writer = csv.DictWriter(out, fieldnames=list(csv_rows[0]))
                 writer.writeheader()
-                writer.writerows(rows)
+                writer.writerows(csv_rows)
         if "mp4" in formats:
             for i, c in enumerate(clips, 1):
                 progress("render", (i - 1) / len(clips))

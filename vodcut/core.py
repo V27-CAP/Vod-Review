@@ -24,11 +24,25 @@ def config(path: Path = ROOT / "config.toml") -> dict:
     if model_path.is_dir():
         cfg["analysis"]["model"] = str(model_path)
     a, f, c = cfg["analysis"], cfg["features"], cfg["clips"]
+    a.setdefault("facecam", False)
+    a.setdefault("audio_track", -1)
+    a.setdefault("voice_isolation", True)
+    f.setdefault("facecam_step", 1)
+    f.setdefault("voice_side_level", 0.15)
+    f.setdefault("voice_highpass_hz", 120)
+    f.setdefault("voice_lowpass_hz", 3800)
+    f.setdefault("voice_denoise_nf", -25)
+    f.setdefault("vad_threshold", 0.5)
+    f.setdefault("vad_min_speech_ms", 250)
+    f.setdefault("vad_min_silence_ms", 400)
+    cfg["weights"].setdefault("facecam", 0.12)
     if not (
         1 <= a["chunk_seconds"] <= 600
         and 1 <= a["cpu_threads"] <= 64
         and a["beam_size"] > 0
         and f["sample_rate"] == 16000
+        and isinstance(a["audio_track"], int)
+        and a["audio_track"] >= -1
     ):
         raise ValueError("Invalid audio or transcription configuration")
     if not (
@@ -41,7 +55,13 @@ def config(path: Path = ROOT / "config.toml") -> dict:
     if not (
         0 <= f["floor_percentile"] < f["ceiling_percentile"] <= 100
         and f["visual_step"] >= 1
+        and f["facecam_step"] >= 1
         and f["baseline_seconds"] >= 1
+        and 0 <= f["voice_side_level"] <= 1
+        and 20 <= f["voice_highpass_hz"] < f["voice_lowpass_hz"] <= 8000
+        and 0 < f["vad_threshold"] < 1
+        and f["vad_min_speech_ms"] > 0
+        and f["vad_min_silence_ms"] > 0
     ):
         raise ValueError("Invalid feature configuration")
     if any(not math.isfinite(v) or v < 0 for v in cfg["weights"].values()):
@@ -58,6 +78,9 @@ def config(path: Path = ROOT / "config.toml") -> dict:
     ):
         raise ValueError("Signal windows and scales must be positive")
     judge = cfg["judge"]
+    judge.setdefault("provider", "lmstudio")
+    judge.setdefault("api_key", "")
+    judge.setdefault("vision", False)
     if not (
         0 <= judge["blend"] <= 1
         and judge["understandability_weight"] >= 0

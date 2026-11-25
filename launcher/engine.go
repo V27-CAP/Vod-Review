@@ -20,18 +20,68 @@ import (
 //go:embed worker.py
 var worker string
 
-type Clip struct {
-	ID, Name, Status, Transcript, Thumbnail string
-	Start, End, Peak, Score                 float64
-	Reason                                  map[string]string
+type AudioTrack struct {
+	StreamIndex int    `json:"stream_index"`
+	AudioIndex  int    `json:"audio_index"`
+	Channels    int    `json:"channels"`
+	SampleRate  int    `json:"sample_rate"`
+	Codec       string `json:"codec"`
+	Title       string `json:"title"`
+	Language    string `json:"language"`
 }
+
+type FacecamROI struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	W float64 `json:"w"`
+	H float64 `json:"h"`
+}
+
+type VideoMeta struct {
+	Path        string       `json:"path"`
+	Duration    float64      `json:"duration"`
+	Width       int          `json:"width"`
+	Height      int          `json:"height"`
+	Channels    int          `json:"channels"`
+	AudioTracks []AudioTrack `json:"audio_tracks"`
+	Facecam     *FacecamROI  `json:"facecam,omitempty"`
+}
+
+type ProbeResult struct {
+	Meta      VideoMeta `json:"meta"`
+	Frame     string    `json:"frame"`
+	Timestamp float64   `json:"timestamp"`
+}
+
+type PreviewResult struct {
+	Path         string  `json:"path"`
+	PreviewStart float64 `json:"preview_start"`
+	PreviewEnd   float64 `json:"preview_end"`
+}
+
+type Clip struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Status      string            `json:"status"`
+	Transcript  string            `json:"transcript"`
+	Thumbnail   string            `json:"thumbnail"`
+	Start       float64           `json:"start"`
+	End         float64           `json:"end"`
+	Peak        float64           `json:"peak"`
+	Score       float64           `json:"score"`
+	Reason      map[string]string `json:"reason"`
+	Category    string            `json:"category"`
+	Categories  []string          `json:"categories"`
+	ContextNote string            `json:"context_note"`
+	Description string            `json:"description"`
+	Hashtags    []string          `json:"hashtags"`
+}
+
 type Review struct {
-	Project, Run string
-	Meta         struct {
-		Path     string
-		Duration float64
-	}
-	Clips []Clip
+	Project string    `json:"project"`
+	Run     string    `json:"run"`
+	Meta    VideoMeta `json:"meta"`
+	Clips   []Clip    `json:"clips"`
 }
 
 func cacheDir() string {
@@ -123,6 +173,7 @@ func runWorker(ctx context.Context, request map[string]any, progress func(string
 		}
 	}()
 	scan := bufio.NewScanner(stdout)
+	scan.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	var result, problem string
 	var complete bool
 	for scan.Scan() {

@@ -90,7 +90,7 @@ func playerPath() (string, error) {
 	return target, nil
 }
 
-func (u *desk) portablePreview(path string) {
+func (u *desk) portablePreview(path string, startOffset float64) {
 	if u.previewCancel != nil {
 		u.previewCancel()
 	}
@@ -102,7 +102,12 @@ func (u *desk) portablePreview(path string) {
 	go func() {
 		player, err := playerPath()
 		if err == nil {
-			cmd := exec.CommandContext(ctx, player, "-loglevel", "error", "-autoexit", "-x", "800", "-window_title", caption, path)
+			args := []string{"-loglevel", "error", "-autoexit", "-x", "800", "-window_title", caption}
+			if startOffset > 0.05 {
+				args = append(args, "-ss", fmt.Sprintf("%.3f", startOffset))
+			}
+			args = append(args, path)
+			cmd := exec.CommandContext(ctx, player, args...)
 			cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
 			var diagnostic []byte
 			diagnostic, err = cmd.CombinedOutput()

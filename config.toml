@@ -7,13 +7,17 @@ beam_size = 3
 transcription = true
 audio = true
 visual = false
+facecam = false
 chat = true
 judge = false
+audio_track = -1
+voice_isolation = true
 
 [features]
 sample_rate = 16000
 silence_db = -43
 visual_step = 3
+facecam_step = 1
 baseline_seconds = 45
 floor_percentile = 50
 ceiling_percentile = 97
@@ -27,6 +31,13 @@ vocal_pulses = 5
 vocal_zcr_scale = 15
 vocal_peak_scale = 2
 reaction_hits = 2
+voice_side_level = 0.15
+voice_highpass_hz = 120
+voice_lowpass_hz = 3800
+voice_denoise_nf = -25
+vad_threshold = 0.5
+vad_min_speech_ms = 250
+vad_min_silence_ms = 400
 laughter_pattern = 'k{3,}|(?:ha){2,}|(?:ja){3,}|www+|笑|草|\b(?:kekw|lulw?|lmao|absolutely|lol|pog(?:champ)?)\b'
 reaction_pattern = 'what|wait|no way|oh no|meu deus|não acredito|pera|socorro|nossa|caraca|うそ|やば|まじ|えっ|[!?！？]|(?:ha){2,}|笑'
 
@@ -39,6 +50,7 @@ chat_rate = 0.09
 chat_laugh = 0.10
 chat_users = 0.09
 motion = 0.04
+facecam = 0.12
 
 [clips]
 min_seconds = 15
@@ -52,10 +64,13 @@ context_bonus = 0.15
 context_window = 18
 
 [judge]
-# A locally running OpenAI-compatible chat completions server.
+# Supports local servers (lmstudio, ollama) and cloud APIs (gemini, openai).
+provider = "lmstudio"
 endpoint = "http://127.0.0.1:1234/v1/chat/completions"
 model = "local-model"
 key_env = "VODCUT_JUDGE_KEY"
+api_key = ""
+vision = false
 shortlist = 12
 blend = 0.30
 understandability_weight = 2.0

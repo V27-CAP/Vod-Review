@@ -7,8 +7,8 @@ A local review desk for editors clipping long livestreams. Load a VOD, rank mome
 Abra [VODCut-Studio.exe](https://github.com/V27-CAP/Vod-Review/blob/main/downloads/VODCut-Studio.exe) e clique em **Download** no GitHub. Entre com a conta que tem acesso a este repositório privado.
 
 1. Feche a versão anterior do VODCut e dê dois cliques no novo **VODCut-Studio.exe**.
-2. Clique em **Escolher vídeo…**. Use **Procurar vídeo…** ou cole o caminho da gravação e clique em **Analisar vídeo**. Você também pode arrastar um vídeo para a janela.
-3. Selecione um destaque para ver a prévia, ajustar o nome e os tempos e aprovar o corte. **Exportar aprovados…** gera XML para o Premiere, MP4, CSV ou JSON. O menu **Aparência** oferece vermelho, escuro e branco.
+2. Clique em **Escolher vídeo…**. Use **Procurar vídeo…** ou cole o caminho da gravação, escolha opcionalmente a faixa de áudio do microfone no OBS, mantenha o filtro leve de isolamento de fala ativado, marque a região da **Facecam** diretamente no quadro do vídeo e configure a **IA** (local via LM Studio/Ollama ou nuvem via Gemini/OpenAI) antes de clicar em **Analisar vídeo**. Você também pode arrastar um vídeo para a janela.
+3. Filtre e marque destaques por **Engraçado**, **Intenso**, **Fofo** e **História marcante**, abra a prévia sincronizada (seekbar no tempo do VOD, Espaço para play/pause, `-5s/+5s`, início/pico, velocidade `0.5x–2x`, volume/mudo e **Marcar início/fim aqui**), use **Copiar post** e clique em **Exportar aprovados…** para gerar XML do Premiere, `posts.txt`, MP4, CSV e JSON. O menu **Aparência** oferece vermelho, escuro e branco.
 
 A janela usa controles nativos do Windows e abre diretamente pelo executável. Python, FFmpeg e Whisper só entram em ação quando você solicita uma operação. O pacote também inclui um reprodutor de prévia para computadores sem o codec do Windows. A primeira análise prepara as ferramentas locais e reutiliza a instalação da versão anterior quando disponível. Reserve 1,4 GB livres para as ferramentas, além do espaço para seus vídeos e cortes. [Ver a interface do aplicativo](downloads/VODCut-Interface.png)
 

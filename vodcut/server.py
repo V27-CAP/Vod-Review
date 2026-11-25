@@ -32,7 +32,12 @@ class Analyze(BaseModel):
     transcription: bool = True
     audio: bool = True
     visual: bool = False
+    facecam: bool = False
+    facecam_roi: dict | None = None
+    audio_track: int = -1
+    voice_isolation: bool = True
     judge: bool = False
+    ai: dict | None = None
     top_n: int = Field(default=20, ge=1, le=250)
     min_seconds: int = Field(default=15, ge=1, le=900)
     max_seconds: int = Field(default=90, ge=1, le=900)
@@ -45,12 +50,16 @@ class Edit(BaseModel):
     start: float
     end: float
     status: Literal["approved", "pending", "rejected"]
+    category: str | None = None
+    context_note: str | None = None
+    description: str | None = None
+    hashtags: list[str] | str | None = None
 
 
 class Export(BaseModel):
     project: str
     run: str
-    formats: list[Literal["xml", "csv", "json", "mp4"]]
+    formats: list[Literal["xml", "csv", "json", "mp4", "posts"]]
     vertical: bool = False
 
 
@@ -105,8 +114,24 @@ class Desk:
     def analyze(self, form: Analyze) -> None:
         cfg = config(self.cfg_path)
         cfg["analysis"].update(
-            {k: getattr(form, k) for k in ("transcription", "audio", "visual", "judge")}
+            {
+                k: getattr(form, k)
+                for k in (
+                    "transcription",
+                    "audio",
+                    "visual",
+                    "facecam",
+                    "facecam_roi",
+                    "audio_track",
+                    "voice_isolation",
+                    "judge",
+                )
+            }
         )
+        if form.ai:
+            for k in ("provider", "endpoint", "model", "api_key", "vision"):
+                if k in form.ai and form.ai[k] is not None:
+                    cfg["judge"][k] = form.ai[k]
         cfg["clips"].update({k: getattr(form, k) for k in ("top_n", "min_seconds", "max_seconds")})
         p = detect(Path(form.path), cfg, Path(form.chat) if form.chat else None, self.progress)
         with self.lock:
@@ -116,8 +141,20 @@ class Desk:
                 for c in p["clips"]:
                     previous = edits.get(c["id"])
                     if previous:
-                        for k in ("name", "start", "end", "status", "transcript"):
-                            c[k] = previous[k]
+                        for k in (
+                            "name",
+                            "start",
+                            "end",
+                            "status",
+                            "transcript",
+                            "category",
+                            "categories",
+                            "context_note",
+                            "description",
+                            "hashtags",
+                        ):
+                            if k in previous:
+                                c[k] = previous[k]
             self.project = p
             self.persist()
 
@@ -188,6 +225,8 @@ def create_app(cfg_path: Path = ROOT / "config.toml") -> FastAPI:
 
     @app.post("/api/clip/{cid}")
     def edit(cid: str, form: Edit):
+        from .classify import normalize_category, normalize_hashtags
+
         with desk.lock:
             p = desk.require()
             if desk.job["busy"] or form.project != p["project"] or form.run != p["run"]:
@@ -200,13 +239,27 @@ def create_app(cfg_path: Path = ROOT / "config.toml") -> FastAPI:
                 raise HTTPException(
                     422, "Keep the peak inside the clip / Mantenha o pico dentro do corte"
                 )
-            c.update(
+            updates = dict(
                 name=form.name.strip(),
                 start=form.start,
                 end=form.end,
                 status=form.status,
                 transcript=snippet(p["segments"], form.start, form.end),
             )
+            if form.category is not None:
+                cat = normalize_category(form.category)
+                updates["category"] = cat
+                cats = [cat] + [x for x in c.get("categories", []) if x != cat]
+                updates["categories"] = cats
+            if form.context_note is not None:
+                updates["context_note"] = form.context_note.strip()
+            if form.description is not None:
+                updates["description"] = form.description.strip()
+            if form.hashtags is not None:
+                updates["hashtags"] = normalize_hashtags(
+                    form.hashtags, updates.get("category", c.get("category", "funny"))
+                )
+            c.update(updates)
             desk.persist()
             return dict(c)
 

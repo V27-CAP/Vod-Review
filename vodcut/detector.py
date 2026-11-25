@@ -129,12 +129,17 @@ REASONS = {
     "chat_laugh": ("Risadas no chat", "Chat laughter"),
     "chat_users": ("Mais participantes no chat", "Unique chatter spike"),
     "motion": ("Mudança visual", "Visual change"),
+    "facecam": ("Expressão / movimento na facecam", "Facecam expression / movement"),
 }
 
 
 def detect(
     path: Path, cfg: dict, chat: Path | None = None, progress: Progress = lambda *_: None
 ) -> dict:
+    from .classify import classify_clip
+    from .media import normalize_facecam
+    from .signals import facecam_features
+
     path = path.resolve()
     root = CACHE / identity(path)
     progress("probe", 0)
@@ -164,6 +169,19 @@ def detect(
             root / f"motion-{step}.json", lambda: visual_features(meta, step, progress)
         )
         progress("visual", 1)
+    facecam_roi = (
+        normalize_facecam(cfg["analysis"].get("facecam_roi"))
+        if cfg["analysis"].get("facecam")
+        else None
+    )
+    if facecam_roi:
+        fstep = int(cfg["features"].get("facecam_step", 1))
+        fsig = key("facecam-v1", facecam_roi, fstep, cfg["features"]["baseline_seconds"])
+        signals["facecam"] = cache(
+            root / f"facecam-{fsig}.json",
+            lambda: facecam_features(meta, facecam_roi, fstep, cfg["features"], progress),
+        )
+        progress("facecam", 1)
     if chat and cfg["analysis"]["chat"]:
         from .chat import chat_features
 
@@ -190,10 +208,11 @@ def detect(
             lang: " + ".join(REASONS[k][i] for k in clip["signals"])
             for i, lang in enumerate(("pt", "en"))
         }
+        clip.update(classify_clip(clip))
     if cfg["analysis"]["judge"]:
         from .judge import rerank
 
-        clips = rerank(clips, cfg["judge"], root, progress)
+        clips = rerank(clips, cfg["judge"], root, progress, meta=meta, facecam=facecam_roi)
     for i, clip in enumerate(clips):
         progress("rank", i / max(1, len(clips)))
         thumb = root / "thumbs" / clip["thumbnail"]
@@ -214,5 +233,9 @@ def detect(
                 thumb,
             )
     progress("rank", 1)
-    sig = key(cfg, identity(chat) if chat else None)
+    safe_cfg = dict(cfg, judge={k: v for k, v in cfg.get("judge", {}).items() if k != "api_key"})
+    sig = key(safe_cfg, identity(chat) if chat else None)
+    if facecam_roi:
+        meta["facecam"] = facecam_roi
+    meta["selected_audio_track"] = int(cfg["analysis"].get("audio_track", -1))
     return dict(project=root.name, run=sig, meta=meta, clips=clips, curve=curve, segments=segments)
