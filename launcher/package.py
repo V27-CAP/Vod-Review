@@ -39,6 +39,7 @@ def player_archive(stream, runtime_start, ffmpeg):
 def collect_app_files(repo: Path):
     """Return (arcname, bytes) pairs for all repo files placed under app/ in the runtime ZIP."""
     items = []
+    items.append(("app/licenses/OpenSans-LICENSE.txt", (repo / "launcher/fonts/OpenSans-LICENSE.txt").read_bytes()))
     for name in ("PLAN.md", "README.md", "requirements.txt"):
         p = repo / name
         if p.is_file():

@@ -80,7 +80,7 @@ func (u *desk) t(pt, en string) string {
 	}
 	return pt
 }
-func font(n int, b bool) Font                { return Font{Family: "Barlow", PointSize: n, Bold: b} }
+func font(n int, b bool) Font                { return Font{Family: "Open Sans", PointSize: n, Bold: b} }
 func solid(color walk.Color) SolidColorBrush { return SolidColorBrush{Color: color} }
 func (u *desk) error(err error)              { walk.MsgBox(u.mw, title, err.Error(), walk.MsgBoxIconError) }
 
@@ -271,7 +271,10 @@ func (u *desk) build() error {
 			filterIdx = i + 1
 		}
 	}
-	caption := func(s string) Label { return Label{Text: s, TextColor: muted, NoPrefix: true, Font: font(9, true)} }
+	caption := func(s string) Label { return Label{Text: s, TextColor: muted, NoPrefix: true, Font: font(10, true)} }
+	field := func(label string, input Widget, weight int) Composite {
+		return Composite{StretchFactor: weight, Layout: VBox{MarginsZero: true, Spacing: 3}, Children: []Widget{caption(label), input}}
+	}
 	view := MainWindow{
 		AssignTo: &u.mw, Title: title, Font: font(11, false), Size: Size{Width: 1140, Height: 760}, MinSize: Size{Width: 840, Height: 600},
 		Background: solid(body), Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true, SpacingZero: true},
@@ -317,21 +320,20 @@ func (u *desk) build() error {
 						PushButton{AssignTo: &u.export, Text: t("Exportar aprovados…", "Export approved clips…"), OnClicked: u.exportDialog},
 					}},
 					Composite{StretchFactor: 7, Background: solid(panel), Layout: VBox{Margins: Margins{14, 10, 14, 12}, Spacing: 5}, Children: []Widget{
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{Label{AssignTo: &u.editorTitle, Font: font(17, true), TextColor: ink}, HSpacer{}, PushButton{AssignTo: &u.switchPage, OnClicked: func() { u.showEditor(!u.postOpen) }}}},
+						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{Label{AssignTo: &u.editorTitle, Font: font(17, true), TextColor: ink}, HSpacer{}, PushButton{AssignTo: &u.preview, Text: t("Ver prévia", "Preview"), OnClicked: func() { u.edit("preview", "") }}, PushButton{AssignTo: &u.switchPage, OnClicked: func() { u.showEditor(!u.postOpen) }}}},
 						ImageView{AssignTo: &u.image, Background: solid(walk.RGB(28, 28, 32)), Mode: ImageViewModeZoom, MinSize: Size{Height: 64}, StretchFactor: 2},
 						Label{AssignTo: &u.reason, TextColor: muted, EllipsisMode: EllipsisEnd, NoPrefix: true},
 						Composite{AssignTo: &u.cutFields, Layout: VBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
 							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-								caption(t("Nome", "Name")), LineEdit{AssignTo: &u.name, MaxLength: 160},
-								caption(t("Categoria", "Category")), ComboBox{AssignTo: &u.clipCategory, Model: catLabels, CurrentIndex: 0, MaxSize: Size{Width: 145}},
-								PushButton{AssignTo: &u.preview, Text: t("Ver prévia", "Preview"), OnClicked: func() { u.edit("preview", "") }},
+								field(t("Título do corte", "Clip title"), LineEdit{AssignTo: &u.name, MaxLength: 160}, 3),
+								field(t("Categoria", "Category"), ComboBox{AssignTo: &u.clipCategory, Model: catLabels, CurrentIndex: 0}, 2),
 							}},
-							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-								caption(t("Início (s)", "Start (s)")), NumberEdit{AssignTo: &u.start, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1},
-								caption(t("Fim (s)", "End (s)")), NumberEdit{AssignTo: &u.end, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1},
+							Composite{Layout: HBox{MarginsZero: true, Spacing: 12}, Children: []Widget{
+								field(t("Início em segundos", "Start in seconds"), NumberEdit{AssignTo: &u.start, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1}, 1),
+								field(t("Fim em segundos", "End in seconds"), NumberEdit{AssignTo: &u.end, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1}, 1),
 							}},
 							caption(t("Transcrição", "Transcript")),
-							TextEdit{AssignTo: &u.words, ReadOnly: true, VScroll: true, MinSize: Size{Height: 34}, MaxSize: Size{Height: 68}},
+							TextEdit{AssignTo: &u.words, ReadOnly: true, VScroll: true, MinSize: Size{Height: 46}, MaxSize: Size{Height: 78}},
 						}},
 						Composite{AssignTo: &u.postFields, Visible: false, Layout: VBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
 							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -500,6 +502,7 @@ func (u *desk) controls() {
 	review := u.project.Project != ""
 	u.welcome.SetVisible(!review)
 	u.reviewArea.SetVisible(review)
+	u.file.SetVisible(review)
 	u.load.SetVisible(review)
 	u.welcomeLoad.SetEnabled(idle)
 	u.switchPage.SetEnabled(has)

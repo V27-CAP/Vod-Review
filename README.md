@@ -9,7 +9,7 @@ Abra [VODCut-Studio.exe](https://github.com/V27-CAP/Vod-Review/blob/main/downloa
 1. Feche a versão anterior do VODCut e dê dois cliques no novo **VODCut-Studio.exe**.
 2. Clique em **Escolher vídeo…**, escolha o **Preset de edição** (**Funny Moments** 5–45s, **Best Moments / Story Edit** 10–240s com fusão de picos próximos, ou **Short Clips** 15–90s) e o idioma dos títulos/IA (**English** ou **Português**), procure sua gravação e selecione **Analisar vídeo**. Você também pode arrastar a gravação para a janela. Para escolher a faixa do microfone, marcar a facecam/avatar VTuber, configurar a IA ou incluir o chat da live, abra **Configurar OBS, facecam, IA e chat…**.
 3. Selecione um destaque para assistir à prévia e ajustar os tempos. Use **Editar post** para alterar descrição, contexto e hashtags. Clique em **Aprovar corte** e depois em **Exportar aprovados…** para gerar os arquivos.
-4. Abra **Preferências** para escolher o tema vermelho, escuro ou branco e o idioma. A fonte Barlow vem no executável.
+4. Abra **Preferências** para escolher o tema vermelho, escuro ou branco e o idioma. A fonte Open Sans vem no executável.
 
 A janela usa controles nativos do Windows e abre diretamente pelo executável. Python, FFmpeg e Whisper só entram em ação quando você solicita uma operação. O pacote também inclui um reprodutor de prévia para computadores sem o codec do Windows. A primeira análise prepara as ferramentas locais e reutiliza a instalação da versão anterior quando disponível. Reserve 1,4 GB livres para as ferramentas, além do espaço para seus vídeos e cortes. [Ver a interface do aplicativo](downloads/VODCut-Interface.png)
 

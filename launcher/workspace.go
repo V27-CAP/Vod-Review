@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
-	"math"
 )
 
 func fill(c *walk.Canvas, color walk.Color, r walk.Rectangle) {
@@ -33,51 +32,13 @@ func brandMark(p palette) Widget {
 }
 
 // Diagram of a selected audio interval. It contains no sample project data.
-func intervalDiagram(p palette) Widget {
-	var canvas *walk.CustomWidget
-	return CustomWidget{AssignTo: &canvas, MinSize: Size{Width: 200, Height: 104}, MaxSize: Size{Height: 154}, PaintMode: PaintBuffered, InvalidatesOnResize: true, Paint: func(c *walk.Canvas, dirty walk.Rectangle) error {
-		r := canvas.ClientBounds()
-		fill(c, p.field, dirty)
-		width, height := r.Width, r.Height
-		left, right := width*38/100, width*73/100
-		fill(c, p.raised, walk.Rectangle{X: left, Y: 12, Width: right - left, Height: height - 24})
-		for x := 12; x < width-8; x += 6 {
-			v := float64(x) / float64(width)
-			envelope := .17 + .52*math.Exp(-math.Pow((v-.54)*8, 2)) + .21*math.Exp(-math.Pow((v-.2)*10, 2))
-			n := int(float64(height) * envelope * (.35 + .65*math.Abs(math.Sin(float64(x)*1.37)*math.Cos(v*18))))
-			color := p.edge
-			if x >= left && x <= right {
-				color = p.accent
-			}
-			fill(c, color, walk.Rectangle{X: x, Y: (height - n) / 2, Width: 3, Height: n + 2})
-		}
-		for _, x := range []int{left, right} {
-			fill(c, p.accent, walk.Rectangle{X: x, Y: 12, Width: 2, Height: height - 24})
-		}
-		fill(c, p.accent, walk.Rectangle{X: left, Y: 12, Width: 9, Height: 4})
-		fill(c, p.accent, walk.Rectangle{X: right - 7, Y: height - 16, Width: 9, Height: 4})
-		return nil
-	}}
-}
-
 func (u *desk) welcomePanel() Composite {
 	p, t := u.colors(), u.t
-	info := func(label, detail string) Widget {
-		return Composite{Layout: VBox{MarginsZero: true, Spacing: 4}, Children: []Widget{
-			Label{Text: label, Font: font(14, true), TextColor: p.ink}, TextLabel{Text: detail, TextColor: p.muted, MinSize: Size{Width: 165}},
-		}}
-	}
-	return Composite{AssignTo: &u.welcome, Layout: HBox{MarginsZero: true, Spacing: 16}, Children: []Widget{
-		Composite{StretchFactor: 7, Background: solid(p.panel), Layout: VBox{Margins: Margins{28, 22, 28, 22}, Spacing: 14}, Children: []Widget{
-			VSpacer{}, intervalDiagram(p), Label{Text: t("Importar gravação", "Import recording"), Font: font(29, true), TextColor: p.ink},
-			TextLabel{Text: t("Arraste sua live para esta janela ou escolha um vídeo no computador.", "Drop your stream recording here or choose a video from your computer."), MinSize: Size{Width: 220}, TextColor: p.muted},
-			Composite{Layout: HBox{MarginsZero: true, Spacing: 12}, Children: []Widget{PushButton{Name: "primary", AssignTo: &u.welcomeLoad, Text: t("Escolher vídeo…", "Choose video…"), MinSize: Size{Width: 155, Height: 40}, OnClicked: u.pickVideo}, Label{Text: "MP4  /  MKV  /  MOV", TextColor: p.muted, Font: font(9, true)}, HSpacer{}}}, VSpacer{},
-		}},
-		Composite{StretchFactor: 4, Background: solid(p.panel), Layout: VBox{Margins: Margins{24, 22, 24, 22}, Spacing: 20}, Children: []Widget{VSpacer{},
-			info(t("Detectar momentos", "Find moments"), t("Use áudio, fala ou movimento para localizar reações na gravação.", "Use sound, speech or motion to find reactions in your recording.")),
-			info(t("Revisar os cortes", "Review clips"), t("Assista à prévia, ajuste o início e o fim e aprove seus favoritos.", "Watch a preview, trim the interval and approve your favorites.")),
-			info(t("Exportar os aprovados", "Export your picks"), t("Salve clipes em MP4 ou leve a sequência de cortes para o Premiere.", "Save individual MP4 clips or send a sequence to Premiere.")), VSpacer{},
-		}},
+	return Composite{AssignTo: &u.welcome, Background: solid(p.panel), Layout: VBox{Margins: Margins{36, 24, 36, 24}, Spacing: 14}, Children: []Widget{
+		VSpacer{}, Label{Text: t("Encontre os destaques da sua live", "Find highlights in your stream"), Font: font(25, true), TextColor: p.ink},
+		TextLabel{Text: t("Arraste uma gravação para cá ou escolha um arquivo MP4, MKV ou MOV.", "Drop a recording here or choose an MP4, MKV or MOV file."), TextColor: p.muted},
+		Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{PushButton{Name: "primary", AssignTo: &u.welcomeLoad, Text: t("Escolher vídeo…", "Choose video…"), MinSize: Size{Width: 165, Height: 40}, OnClicked: u.pickVideo}, HSpacer{}}},
+		VSpacer{},
 	}}
 }
 

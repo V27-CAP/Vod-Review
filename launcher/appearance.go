@@ -11,10 +11,10 @@ import (
 	"github.com/lxn/win"
 )
 
-//go:embed fonts/Barlow-Regular.ttf
+//go:embed fonts/OpenSans-Regular.ttf
 var regularFont []byte
 
-//go:embed fonts/Barlow-Bold.ttf
+//go:embed fonts/OpenSans-Bold.ttf
 var boldFont []byte
 
 func loadStudioFonts() {
@@ -231,14 +231,19 @@ func (u *desk) skin(items []Widget, background walk.Color, primary **walk.PushBu
 			}
 			items[i] = w
 		case LineEdit:
+			w.Font = font(11, false)
+			w.MinSize.Height = max(w.MinSize.Height, 30)
 			w.Background = solid(p.field)
 			w.TextColor = p.ink
 			items[i] = w
 		case TextEdit:
+			w.Font = font(11, false)
 			w.Background = solid(p.field)
 			w.TextColor = p.ink
 			items[i] = w
 		case NumberEdit:
+			w.Font = font(11, false)
+			w.MinSize.Height = max(w.MinSize.Height, 30)
 			w.Background = solid(p.field)
 			w.TextColor = p.ink
 			items[i] = w

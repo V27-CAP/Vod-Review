@@ -204,21 +204,21 @@ func (u *desk) analysisDialog(path string) {
 					}
 				}},
 			}},
-			PushButton{AssignTo: &toggle, Text: t("Configurar OBS, facecam, IA e chat…", "Configure OBS, facecam, AI and chat…"), OnClicked: func() {
+			PushButton{AssignTo: &toggle, Text: t("Opções avançadas…", "Advanced options…"), OnClicked: func() {
 				show := !advanced.Visible()
 				advanced.SetVisible(show)
 				basic.SetVisible(!show)
 				if show {
 					toggle.SetText(t("Voltar aos ajustes de corte", "Back to clip settings"))
 				} else {
-					toggle.SetText(t("Configurar OBS, facecam, IA e chat…", "Configure OBS, facecam, AI and chat…"))
+					toggle.SetText(t("Opções avançadas…", "Advanced options…"))
 				}
 				d.SetSize(d.MinSize())
 			}},
 			Composite{AssignTo: &basic, Layout: VBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
 				Label{Text: t("Estilo de edição e idioma", "Editing style and language"), Font: font(10, true)},
 				Composite{Layout: Grid{Columns: 2, MarginsZero: true}, Children: []Widget{
-					Label{Text: t("Preset de edição:", "Editing preset:")},
+					Label{Text: t("Tipo de corte", "Editing preset:")},
 					ComboBox{
 						AssignTo:     &presetBox,
 						Model:        presetLabels,
@@ -240,7 +240,7 @@ func (u *desk) analysisDialog(path string) {
 							}
 						},
 					},
-					Label{Text: t("Idioma dos títulos / IA:", "Titles / AI language:")},
+					Label{Text: t("Idioma dos títulos", "Titles / AI language:")},
 					ComboBox{
 						AssignTo:     &langBox,
 						Model:        langLabels,
