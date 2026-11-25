@@ -89,10 +89,29 @@ def rank(
     )
     peaks = sorted(peaks, key=lambda p: -scores[p])
     starts, ends = sorted(starts), sorted(ends)
+    merge_gap = float(c.get("merge_gap", 0))
+    max_seconds = min(duration, float(c["max_seconds"]))
     clips = []
     for p in peaks:
         peak = min(float(p) + 0.5, max(0, duration - 0.001))
         a, b = bounds(peak, duration, starts, ends, c)
+        if merge_gap > 0:
+            neighbors = [x for x in clips if a <= x["end"] + merge_gap and b >= x["start"] - merge_gap]
+            if neighbors:
+                target = max(neighbors, key=lambda x: x["score"])
+                new_a = round(min(target["start"], a), 4)
+                new_b = round(max(target["end"], b), 4)
+                if new_b - new_a <= max_seconds and not any(
+                    other is not target and new_a < other["end"] and new_b > other["start"] for other in clips
+                ):
+                    target["start"] = new_a
+                    target["end"] = new_b
+                    target["transcript"] = snippet(segments, new_a, new_b)
+                    merged = target.get("merged_peaks", 1) + 1
+                    target["merged_peaks"] = merged
+                    if merged <= 4:
+                        target["score"] = round(min(1.0, target["score"] + 0.025), 4)
+                continue
         if any(a < x["end"] and b > x["start"] for x in clips):
             continue
         parts = {k: round(float(v[p]), 4) for k, v in active.items()}
@@ -117,6 +136,8 @@ def rank(
         )
         if len(clips) >= c["top_n"]:
             break
+    if merge_gap > 0:
+        clips.sort(key=lambda x: -x["score"])
     return clips, [round(float(x.max()), 3) for x in np.array_split(scores, min(360, n))]
 
 
@@ -201,6 +222,8 @@ def detect(
         )
         signals.update(cache(root / f"chat-{sig}.json", lambda: chat_features(chat, n, cfg["features"])))
         progress("chat", 1)
+    output_lang = cfg["analysis"].get("output_language", "en")
+    preset_name = cfg["analysis"].get("preset", "short_clips")
     progress("rank", 0)
     clips, curve = rank(signals, segments, starts, ends, meta["duration"], cfg)
     for clip in clips:
@@ -208,11 +231,14 @@ def detect(
             lang: " + ".join(REASONS[k][i] for k in clip["signals"])
             for i, lang in enumerate(("pt", "en"))
         }
-        clip.update(classify_clip(clip))
+        clip.update(classify_clip(clip, lang=output_lang))
     if cfg["analysis"]["judge"]:
         from .judge import rerank
 
-        clips = rerank(clips, cfg["judge"], root, progress, meta=meta, facecam=facecam_roi)
+        judge_cfg = dict(cfg["judge"])
+        judge_cfg.setdefault("output_language", output_lang)
+        judge_cfg.setdefault("style", preset_name)
+        clips = rerank(clips, judge_cfg, root, progress, meta=meta, facecam=facecam_roi)
     for i, clip in enumerate(clips):
         progress("rank", i / max(1, len(clips)))
         thumb = root / "thumbs" / clip["thumbnail"]
@@ -238,4 +264,6 @@ def detect(
     if facecam_roi:
         meta["facecam"] = facecam_roi
     meta["selected_audio_track"] = int(cfg["analysis"].get("audio_track", -1))
+    meta["output_language"] = output_lang
+    meta["preset"] = preset_name
     return dict(project=root.name, run=sig, meta=meta, clips=clips, curve=curve, segments=segments)

@@ -12,6 +12,8 @@ chat = true
 judge = false
 audio_track = -1
 voice_isolation = true
+preset = "short_clips"
+output_language = "en"
 
 [features]
 sample_rate = 16000
@@ -38,8 +40,8 @@ voice_denoise_nf = -25
 vad_threshold = 0.5
 vad_min_speech_ms = 250
 vad_min_silence_ms = 400
-laughter_pattern = 'k{3,}|(?:ha){2,}|(?:ja){3,}|www+|笑|草|\b(?:kekw|lulw?|lmao|absolutely|lol|pog(?:champ)?)\b'
-reaction_pattern = 'what|wait|no way|oh no|meu deus|não acredito|pera|socorro|nossa|caraca|うそ|やば|まじ|えっ|[!?！？]|(?:ha){2,}|笑'
+laughter_pattern = 'k{3,}|(?:ha){2,}|(?:ja){3,}|www+|笑|草|\b(?:kekw|lulw?|lmao|lmfao|absolutely|lol|pog(?:champ)?)\b'
+reaction_pattern = '''oh my god|oh god|oh no|no way|what the|wait what|holy (?:shit|crap|cow|hell|moly)|no,? no,? no|let'?s go|we did it|i'?m dead|i'?m hit|i'?m (?:not )?crying|tearing up|which way|where (?:is|are) (?:he|she|they|you|it)|stop it|help me|excuse me|\[(?:laughter|laughing|screaming|screams?|crying|gasps?|snorts?|cheering)\]|\b(?:omg|wtf|fuck\w*|shit\w*|goddamn|damn it|bullshit|fraud|pera[ií]?|socorro|nossa|caraca)\b|meu deus|não acredito|うそ|やば|まじ|えっ|[!！]|\?!|\?\?|(?:ha){2,}|k{3,}|笑'''
 
 [weights]
 loudness = 0.14
@@ -62,6 +64,7 @@ top_n = 20
 min_score = 0.16
 context_bonus = 0.15
 context_window = 18
+merge_gap = 0
 
 [judge]
 # Supports local servers (lmstudio, ollama) and cloud APIs (gemini, openai).
@@ -71,6 +74,7 @@ model = "local-model"
 key_env = "VODCUT_JUDGE_KEY"
 api_key = ""
 vision = false
+style = "short_clips"
 shortlist = 12
 blend = 0.30
 understandability_weight = 2.0

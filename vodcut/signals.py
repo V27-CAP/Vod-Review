@@ -200,8 +200,13 @@ def facecam_features(meta: dict, roi: dict, step: int, cfg: dict, progress: Prog
 
 def speech_features(segments: list, n: int, cfg: dict) -> np.ndarray:
     values = np.zeros(n)
+    pattern = re.compile(cfg["reaction_pattern"], re.IGNORECASE)
     for s in segments:
-        hits = len(re.findall(cfg["reaction_pattern"], s["text"], re.IGNORECASE))
-        t = min(n - 1, max(0, int(s["end"])))
-        values[t] = max(values[t], min(1, hits / cfg["reaction_hits"]))
+        hits = len(pattern.findall(s["text"]))
+        if not hits:
+            continue
+        score = min(1.0, hits / cfg["reaction_hits"])
+        a = min(n - 1, max(0, int(s.get("start", s["end"]))))
+        b = min(n, max(a + 1, math.ceil(float(s["end"]))))
+        values[a:b] = np.maximum(values[a:b], score)
     return maximum_filter1d(values, size=3)

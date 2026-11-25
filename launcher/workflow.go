@@ -16,10 +16,31 @@ import (
 )
 
 type options struct {
+	preset, outputLang                                        string
 	transcribe, audio, visual, facecam, voiceIsolation, judge bool
 	audioTrack                                                int
 	facecamROI                                                *FacecamROI
 	min, max, limit                                           int
+}
+
+type presetDef struct {
+	id, pt, en      string
+	min, max, limit int
+}
+
+var editPresets = []presetDef{
+	{id: "funny_moments", pt: "Funny Moments (cortes rápidos · 5–45s)", en: "Funny Moments (fast cuts · 5–45s)", min: 5, max: 45, limit: 60},
+	{id: "best_moments", pt: "Best Moments / História (cenas longas · 10–240s)", en: "Best Moments / Story Edit (long arcs · 10–240s)", min: 10, max: 240, limit: 45},
+	{id: "short_clips", pt: "Clipes Curtos / Reels (independentes · 15–90s)", en: "Short Clips / Reels (standalone · 15–90s)", min: 15, max: 90, limit: 20},
+}
+
+func presetIndex(id string) int {
+	for i, p := range editPresets {
+		if p.id == id {
+			return i
+		}
+	}
+	return 0
 }
 
 func formatTrackLabel(tr AudioTrack, pt bool) string {
@@ -60,9 +81,21 @@ func (u *desk) analysisDialog(path string) {
 	var accept, cancel, probeBtn, facecamBtn, aiBtn *walk.PushButton
 	var chat, video *walk.LineEdit
 	var audio, transcribe, visual, voiceIso, facecamBox, judge *walk.CheckBox
-	var trackBox *walk.ComboBox
+	var presetBox, langBox, trackBox *walk.ComboBox
 	var facecamLabel, aiLabel *walk.Label
 	var lo, hi, count *walk.NumberEdit
+
+	presetLabels := make([]string, len(editPresets))
+	for i, p := range editPresets {
+		presetLabels[i] = t(p.pt, p.en)
+	}
+	curPresetIdx := presetIndex(u.opts.preset)
+	langIDs := []string{"en", "pt"}
+	langLabels := []string{"English", "Português (BR)"}
+	curLangIdx := 0
+	if u.opts.outputLang == "pt" {
+		curLangIdx = 1
+	}
 
 	var probed ProbeResult
 	var hasProbe bool
@@ -183,6 +216,37 @@ func (u *desk) analysisDialog(path string) {
 				d.SetSize(d.MinSize())
 			}},
 			Composite{AssignTo: &basic, Layout: VBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+				Label{Text: t("Estilo de edição e idioma", "Editing style and language"), Font: font(10, true)},
+				Composite{Layout: Grid{Columns: 2, MarginsZero: true}, Children: []Widget{
+					Label{Text: t("Preset de edição:", "Editing preset:")},
+					ComboBox{
+						AssignTo:     &presetBox,
+						Model:        presetLabels,
+						CurrentIndex: curPresetIdx,
+						OnCurrentIndexChanged: func() {
+							idx := presetBox.CurrentIndex()
+							if idx < 0 || idx >= len(editPresets) {
+								return
+							}
+							p := editPresets[idx]
+							if lo != nil {
+								_ = lo.SetValue(float64(p.min))
+							}
+							if hi != nil {
+								_ = hi.SetValue(float64(p.max))
+							}
+							if count != nil {
+								_ = count.SetValue(float64(p.limit))
+							}
+						},
+					},
+					Label{Text: t("Idioma dos títulos / IA:", "Titles / AI language:")},
+					ComboBox{
+						AssignTo:     &langBox,
+						Model:        langLabels,
+						CurrentIndex: curLangIdx,
+					},
+				}},
 				Label{Text: t("Quais sinais procurar?", "Which signals should be used?"), Font: font(10, true)},
 				CheckBox{AssignTo: &audio, Checked: u.opts.audio, Text: t("Áudio · picos de volume, risadas e reações", "Audio · volume spikes, laughter and reactions")},
 				CheckBox{AssignTo: &transcribe, Checked: u.opts.transcribe, Text: t("Transcrição · usa as falas para encontrar contexto", "Transcription · use speech to find context")},
@@ -212,9 +276,9 @@ func (u *desk) analysisDialog(path string) {
 					Text:     t("Destacar a voz sobre o som do jogo", "Emphasize speech over game audio"),
 				},
 				Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-					CheckBox{AssignTo: &facecamBox, Checked: u.opts.facecam, Text: t("Facecam · expressões e movimento facial", "Facecam · facial expression and movement")},
+					CheckBox{AssignTo: &facecamBox, Checked: u.opts.facecam, Text: t("Facecam / Avatar VTuber · expressões e movimento", "Facecam / VTuber Avatar · expression and movement")},
 					HSpacer{},
-					PushButton{AssignTo: &facecamBtn, Text: t("Marcar Facecam no vídeo…", "Select Facecam region…"), OnClicked: func() {
+					PushButton{AssignTo: &facecamBtn, Text: t("Marcar Facecam no vídeo…", "Select Facecam/Avatar region…"), OnClicked: func() {
 						clean := strings.Trim(strings.TrimSpace(video.Text()), "\"")
 						if hasProbe && probed.Meta.Path != "" && strings.EqualFold(filepath.Clean(probed.Meta.Path), filepath.Clean(clean)) && probed.Frame != "" {
 							if updated, ok := u.facecamDialog(d, clean, probed, currentROI); ok {
@@ -278,12 +342,22 @@ func (u *desk) analysisDialog(path string) {
 					if idx := trackBox.CurrentIndex(); idx >= 0 && idx < len(trackIDs) {
 						selectedTrack = trackIDs[idx]
 					}
+					selectedPreset := editPresets[0].id
+					if idx := presetBox.CurrentIndex(); idx >= 0 && idx < len(editPresets) {
+						selectedPreset = editPresets[idx].id
+					}
+					selectedLang := "en"
+					if idx := langBox.CurrentIndex(); idx >= 0 && idx < len(langIDs) {
+						selectedLang = langIDs[idx]
+					}
 					var savedROI *FacecamROI
 					if currentROI != nil {
 						cp := *currentROI
 						savedROI = &cp
 					}
 					u.opts = options{
+						preset:         selectedPreset,
+						outputLang:     selectedLang,
 						transcribe:     transcribe.Checked(),
 						audio:          audio.Checked(),
 						visual:         visual.Checked(),
@@ -318,6 +392,8 @@ func (u *desk) analysisDialog(path string) {
 	reqOpts := map[string]any{
 		"path":            u.source,
 		"chat":            u.chat,
+		"preset":          o.preset,
+		"output_language": o.outputLang,
 		"transcription":   o.transcribe,
 		"audio":           o.audio,
 		"visual":          o.visual,

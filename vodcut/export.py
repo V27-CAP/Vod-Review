@@ -193,14 +193,14 @@ def _clock(seconds: float) -> str:
     return f"{total // 3600:02d}:{(total // 60) % 60:02d}:{total % 60:02d}"
 
 
-def build_posts_text(clips: list) -> str:
+def build_posts_text(clips: list, lang: str = "pt") -> str:
     from .classify import category_label, format_post
 
     sections: list[str] = []
     for i, c in enumerate(clips, 1):
-        cat = category_label(c.get("category", "funny"), "pt")
+        cat = category_label(c.get("category", "funny"), lang)
         header = f"=== {i:02d}. {c['name']} [{cat}] ({_clock(c['start'])} - {_clock(c['end'])}) ==="
-        sections.append(header + "\n" + format_post(c, "pt"))
+        sections.append(header + "\n" + format_post(c, lang))
     return "\n\n\n".join(sections) + ("\n" if sections else "")
 
 
@@ -211,6 +211,7 @@ def deliver(project: dict, formats: list, vertical: bool, progress: Progress) ->
     if not clips:
         raise ValueError("No approved clips")
     meta = project["meta"]
+    lang = "en" if meta.get("output_language") == "en" else "pt"
     if identity(Path(meta["path"])) != project["project"]:
         raise ValueError("Source changed. Analyze the VOD again.")
     shelf = CACHE / "exports"
@@ -226,8 +227,8 @@ def deliver(project: dict, formats: list, vertical: bool, progress: Progress) ->
         for c in clips:
             cat = normalize_category(c.get("category", "funny"))
             cats = [normalize_category(x) for x in (c.get("categories") or [cat])]
-            tags = normalize_hashtags(c.get("hashtags"), cat)
-            post = format_post(c, "pt")
+            tags = normalize_hashtags(c.get("hashtags"), cat, lang=lang)
+            post = format_post(c, lang)
             base_row = dict(
                 start=c["start"],
                 end=c["end"],
@@ -235,7 +236,7 @@ def deliver(project: dict, formats: list, vertical: bool, progress: Progress) ->
                 score=c["score"],
                 peak=c["peak"],
                 category=cat,
-                category_label=category_label(cat, "pt"),
+                category_label=category_label(cat, lang),
                 context_note=c.get("context_note", ""),
                 description=c.get("description", ""),
             )
@@ -243,13 +244,13 @@ def deliver(project: dict, formats: list, vertical: bool, progress: Progress) ->
             csv_rows.append(
                 dict(
                     base_row,
-                    categories=", ".join(category_label(x, "pt") for x in cats),
+                    categories=", ".join(category_label(x, lang) for x in cats),
                     hashtags=" ".join(tags),
                     post=post,
                 )
             )
         if "posts" in formats:
-            (temp / "posts.txt").write_text(build_posts_text(clips), encoding="utf-8")
+            (temp / "posts.txt").write_text(build_posts_text(clips, lang=lang), encoding="utf-8")
         if "json" in formats:
             save(temp / "clips.json", json_rows)
         if "csv" in formats:

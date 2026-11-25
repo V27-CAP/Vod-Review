@@ -46,21 +46,34 @@ _ALIASES = {
 _PATTERNS = {
     "funny": re.compile(
         r"k{3,}|(?:ha){2,}|(?:rs){2,}|(?:ja){3,}|www+|笑|草|"
-        r"\b(?:kekw|lulw?|lmao|lmfao|lol|rofl|piada|engraçad\w*|rindo|morri|zueira|troll\w*|meme|funny|hilarious|joke|laugh\w*)\b",
+        r"\[(?:laughter|laughing|snorts?)\]|"
+        r"\b(?:kekw|lulw?|lma+o|lmfao|lol|rofl|piada|engraçad\w*|rindo|morri|zueira|troll\w*|meme|"
+        r"funny|hilarious|joke|laugh\w*|fraud|cursed|bruh|shut up|excuse me|goddamn|bullshit|clown|idiot|fail\w*)\b",
         re.IGNORECASE,
     ),
     "intense": re.compile(
         r"!{2,}|\?!|\?\?|"
-        r"\b(?:clutch|boss|morreu|caraca|caralho|meu deus|não acredito|nao acredito|socorro|insan\w*|absurd\w*|corre|cuidado|susto|grit\w*|gg|ganhei|perdi|nervos\w*|tens\w*|crazy|omg|wtf|no way|let'?s go|pog(?:champ)?|holy|clutch)\b",
+        r"\[(?:screaming|screams?|gasps?|panting)\]|"
+        r"oh my god|oh god|what the|no,? no|we did it|i'?m dead|i'?m hit|jump ?scare|"
+        r"\b(?:clutch|boss|morreu|caraca|caralho|meu deus|não acredito|nao acredito|socorro|insan\w*|absurd\w*|"
+        r"corre|cuidado|susto|grit\w*|gg|ganhei|perdi|nervos\w*|tens\w*|crazy|omg|wtf|no way|let'?s go|"
+        r"pog(?:champ)?|holy|fuck\w*|shit\w*|warning|missile|dodge|crash\w*|scary|terrifying|run|help)\b",
         re.IGNORECASE,
     ),
     "cute": re.compile(
         r"<3|♥|❤|🥰|🥹|"
-        r"\b(?:fof\w*|lind\w*|amor\w*|coração|coracao|obrigad\w*|carinh\w*|gatinh\w*|gato|cachorr\w*|pet|dog\w*|cat|aww+|cute|wholesome|sweet|lovely|adorable|heart|thank you|blush\w*|bichinh\w*|nen[eê]m|querid\w*)\b",
+        r"\b(?:fof\w*|lind\w*|amor\w*|coração|coracao|obrigad\w*|carinh\w*|gatinh\w*|gato|cachorr\w*|pet|dog\w*|cat|"
+        r"aww+|cute|wholesome|sweet\w*|lovely|adorable|precious|blessed|comfy|cozy|headpats?|heart|blush\w*|"
+        r"bichinh\w*|nen[eê]m|querid\w*)\b",
         re.IGNORECASE,
     ),
     "story": re.compile(
-        r"\b(?:uma vez|lembro|lembra|quando eu|história|historia|aconteceu|dia que|contar|época|epoca|nunca esqueci|sabe quando|na minha vida|infância|infancia|verdade que|remember|one time|story|happened|when i was|tell you|true story|growing up|back when)\b",
+        r"\[crying\]|i'?m (?:not )?crying|tearing up|made me cry|thank you (?:so much|everyone|guys)|"
+        r"real talk|my whole life|actually cried|"
+        r"\b(?:uma vez|lembro|lembra|quando eu|história|historia|aconteceu|dia que|contar|época|epoca|"
+        r"nunca esqueci|sabe quando|na minha vida|infância|infancia|verdade que|remember|one time|story|"
+        r"happened|when i was|tell you|true story|growing up|back when|sincere|emotional|finale|ending|"
+        r"proud|journey|appreciate|crying)\b",
         re.IGNORECASE,
     ),
 }
@@ -72,16 +85,23 @@ _DEFAULT_TAGS = {
     "story": ["#live", "#clipes", "#shorts", "#historia", "#storytime"],
 }
 
+_DEFAULT_TAGS_EN = {
+    "funny": ["#vtuber", "#clips", "#funny", "#highlights", "#gaming"],
+    "intense": ["#vtuber", "#clips", "#intense", "#highlights", "#gaming"],
+    "cute": ["#vtuber", "#clips", "#wholesome", "#cute", "#highlights"],
+    "story": ["#vtuber", "#clips", "#emotional", "#highlights", "#gaming"],
+}
+
 _SIGNAL_NOTES = {
-    "loudness": "pico de volume",
-    "change": "mudança súbita de energia",
-    "vocal": "reação vocal forte",
-    "transcript": "reação na fala",
-    "chat_rate": "chat acelerado",
-    "chat_laugh": "risadas no chat",
-    "chat_users": "alta participação do chat",
-    "motion": "ação intensa na tela",
-    "facecam": "expressão marcante na facecam",
+    "loudness": ("pico de volume", "volume spike"),
+    "change": ("mudança súbita de energia", "sudden energy jump"),
+    "vocal": ("reação vocal forte", "strong vocal reaction"),
+    "transcript": ("reação na fala", "spoken reaction"),
+    "chat_rate": ("chat acelerado", "fast chat spike"),
+    "chat_laugh": ("risadas no chat", "chat laughter"),
+    "chat_users": ("alta participação do chat", "high chat participation"),
+    "motion": ("ação intensa na tela", "intense on-screen action"),
+    "facecam": ("expressão marcante na facecam", "strong facecam/avatar reaction"),
 }
 
 
@@ -109,7 +129,7 @@ def category_label(category: str, lang: str = "pt") -> str:
     return CATEGORY_LABELS[cat][idx]
 
 
-def normalize_hashtags(tags: list | str | None, fallback_category: str = "funny") -> list[str]:
+def normalize_hashtags(tags: list | str | None, fallback_category: str = "funny", lang: str = "pt") -> list[str]:
     raw_items: list[str] = []
     if isinstance(tags, str):
         raw_items = re.split(r"[\s,;]+", tags.strip())
@@ -128,7 +148,8 @@ def normalize_hashtags(tags: list | str | None, fallback_category: str = "funny"
             seen.add(key)
             result.append(tag)
     if not result:
-        return list(_DEFAULT_TAGS.get(normalize_category(fallback_category), _DEFAULT_TAGS["funny"]))
+        defaults = _DEFAULT_TAGS_EN if lang == "en" else _DEFAULT_TAGS
+        return list(defaults.get(normalize_category(fallback_category), defaults["funny"]))
     return result[:10]
 
 
@@ -140,13 +161,14 @@ def _quote_excerpt(text: str, limit: int = 120) -> str:
     return (cut or cleaned[: limit - 1]).rstrip(",.;:") + "…"
 
 
-def classify_clip(clip: dict) -> dict:
+def classify_clip(clip: dict, lang: str = "en") -> dict:
     """Assign offline category, categories, context_note, description, and hashtags."""
     transcript = (clip.get("transcript") or "").strip()
     breakdown = clip.get("breakdown") or {}
     words = re.findall(r"\S+", transcript)
     word_count = len(words)
     duration = max(1.0, float(clip.get("end", 0)) - float(clip.get("start", 0)))
+    is_en = lang == "en"
 
     scores = {
         "funny": 0.0,
@@ -196,33 +218,51 @@ def classify_clip(clip: dict) -> dict:
         if scores[cat] >= max(0.35, scores[primary] * 0.65):
             categories.append(cat)
 
-    cues = [_SIGNAL_NOTES[s] for s in clip.get("signals", []) if s in _SIGNAL_NOTES]
-    cue_text = ", ".join(cues) if cues else "destaque detectado na live"
+    idx = 1 if is_en else 0
+    cues = [_SIGNAL_NOTES[s][idx] for s in clip.get("signals", []) if s in _SIGNAL_NOTES]
+    cue_text = ", ".join(cues) if cues else ("highlight detected in stream" if is_en else "destaque detectado na live")
     excerpt = _quote_excerpt(transcript, 110)
 
-    label_pt = category_label(primary, "pt")
-    if excerpt:
-        context_note = f"Momento {label_pt.lower()} ({cue_text}): \"{excerpt}\""
+    label = category_label(primary, "en" if is_en else "pt")
+    if is_en:
+        if excerpt:
+            context_note = f"{label} moment ({cue_text}): \"{excerpt}\""
+        else:
+            context_note = f"{label} moment marked by {cue_text}."
+        openers = {
+            "funny": "Couldn't stop laughing at this stream moment!",
+            "intense": "What an intense stream moment!",
+            "cute": "Such a wholesome stream moment!",
+            "story": "This memorable moment had to make the edit!",
+        }
+        hashtags = list(_DEFAULT_TAGS_EN[primary])
+        if breakdown.get("facecam", 0) >= 0.35 and "#reaction" not in hashtags:
+            hashtags.append("#reaction")
+        if clip.get("context") and "#stream" not in hashtags:
+            hashtags.append("#stream")
     else:
-        context_note = f"Momento {label_pt.lower()} marcado por {cue_text}."
+        if excerpt:
+            context_note = f"Momento {label.lower()} ({cue_text}): \"{excerpt}\""
+        else:
+            context_note = f"Momento {label.lower()} marcado por {cue_text}."
+        openers = {
+            "funny": "Não aguentei essa parte da live!",
+            "intense": "Que momento insano na live!",
+            "cute": "O momento mais fofo da live!",
+            "story": "Essa história na live precisava virar corte!",
+        }
+        hashtags = list(_DEFAULT_TAGS[primary])
+        if breakdown.get("facecam", 0) >= 0.35 and "#reacao" not in hashtags:
+            hashtags.append("#reacao")
+        if clip.get("context") and "#stream" not in hashtags:
+            hashtags.append("#stream")
 
-    openers = {
-        "funny": "Não aguentei essa parte da live!",
-        "intense": "Que momento insano na live!",
-        "cute": "O momento mais fofo da live!",
-        "story": "Essa história na live precisava virar corte!",
-    }
     if excerpt:
-        description = f"{openers[primary]} \"{ _quote_excerpt(transcript, 90) }\""
+        description = f"{openers[primary]} \"{_quote_excerpt(transcript, 90)}\""
     else:
         description = openers[primary]
 
-    hashtags = list(_DEFAULT_TAGS[primary])
-    if breakdown.get("facecam", 0) >= 0.35 and "#reacao" not in hashtags:
-        hashtags.append("#reacao")
-    if clip.get("context") and "#stream" not in hashtags:
-        hashtags.append("#stream")
-    hashtags = normalize_hashtags(hashtags, primary)
+    hashtags = normalize_hashtags(hashtags, primary, lang="en" if is_en else "pt")
 
     return dict(
         category=primary,

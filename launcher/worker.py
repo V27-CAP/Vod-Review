@@ -48,10 +48,15 @@ def run(request):
         return json.dumps({"meta": meta, "frame": frame_path, "timestamp": round(ts, 2)}, ensure_ascii=False)
 
     if action == "analyze":
+        from vodcut.core import apply_preset
         from vodcut.detector import detect
 
         form = request["options"]
         cfg = config()
+        if form.get("preset"):
+            apply_preset(cfg, str(form["preset"]))
+        if form.get("output_language") in ("en", "pt"):
+            cfg["analysis"]["output_language"] = str(form["output_language"])
         for name in ("transcription", "audio", "visual", "facecam", "voice_isolation", "judge"):
             if name in form:
                 cfg["analysis"][name] = bool(form[name])
@@ -67,7 +72,8 @@ def run(request):
             if "vision" in ai:
                 cfg["judge"]["vision"] = bool(ai["vision"])
         for name in ("top_n", "min_seconds", "max_seconds"):
-            cfg["clips"][name] = form[name]
+            if name in form and form[name] is not None:
+                cfg["clips"][name] = form[name]
         project = detect(Path(form["path"]), cfg, Path(form["chat"]) if form["chat"] else None, progress)
         ref = {name: project[name] for name in ("project", "run")}
         review = CACHE / ref["project"] / f"review-{ref['run']}.json"

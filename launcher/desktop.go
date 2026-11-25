@@ -146,16 +146,18 @@ func desktop() error {
 		prefs:     filepath.Join(base, "VODCutStudio", "appearance.json"),
 		aiPrefs:   aiPrefsPath,
 		ai:        loadAISettings(aiPrefsPath),
-		settings:  settings{"red", "pt"},
+		settings:  settings{"red", "en"},
 		filterCat: "all",
 		opts: options{
+			preset:         "funny_moments",
+			outputLang:     "en",
 			transcribe:     true,
 			audio:          true,
 			voiceIsolation: true,
 			audioTrack:     -1,
-			min:            15,
-			max:            90,
-			limit:          20,
+			min:            5,
+			max:            45,
+			limit:          60,
 		},
 	}
 	if b, err := os.ReadFile(u.prefs); err == nil {

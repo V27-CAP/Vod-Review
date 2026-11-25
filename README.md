@@ -7,7 +7,7 @@ A local review desk for editors clipping long livestreams. Load a VOD, rank mome
 Abra [VODCut-Studio.exe](https://github.com/V27-CAP/Vod-Review/blob/main/downloads/VODCut-Studio.exe) e clique em **Download** no GitHub. Entre com a conta que tem acesso a este repositório privado.
 
 1. Feche a versão anterior do VODCut e dê dois cliques no novo **VODCut-Studio.exe**.
-2. Clique em **Escolher vídeo…**, procure sua gravação e selecione **Analisar vídeo**. Você também pode arrastar a gravação para a janela. Para escolher a faixa do microfone, marcar a facecam, configurar a IA ou incluir o chat da live, abra **Configurar OBS, facecam, IA e chat…**.
+2. Clique em **Escolher vídeo…**, escolha o **Preset de edição** (**Funny Moments** 5–45s, **Best Moments / Story Edit** 10–240s com fusão de picos próximos, ou **Short Clips** 15–90s) e o idioma dos títulos/IA (**English** ou **Português**), procure sua gravação e selecione **Analisar vídeo**. Você também pode arrastar a gravação para a janela. Para escolher a faixa do microfone, marcar a facecam/avatar VTuber, configurar a IA ou incluir o chat da live, abra **Configurar OBS, facecam, IA e chat…**.
 3. Selecione um destaque para assistir à prévia e ajustar os tempos. Use **Editar post** para alterar descrição, contexto e hashtags. Clique em **Aprovar corte** e depois em **Exportar aprovados…** para gerar os arquivos.
 4. Abra **Preferências** para escolher o tema vermelho, escuro ou branco e o idioma. A fonte Barlow vem no executável.
 

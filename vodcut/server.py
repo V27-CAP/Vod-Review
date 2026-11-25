@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .core import CACHE, ROOT, config, identity, key, read, save
+from .core import CACHE, ROOT, apply_preset, config, identity, key, read, save
 from .detector import detect, snippet
 from .media import ffmpeg
 
@@ -29,6 +29,8 @@ WEB = Path(__file__).parent / "web"
 class Analyze(BaseModel):
     path: str
     chat: str = ""
+    preset: Literal["short_clips", "funny_moments", "best_moments"] = "short_clips"
+    output_language: Literal["en", "pt"] = "en"
     transcription: bool = True
     audio: bool = True
     visual: bool = False
@@ -38,9 +40,9 @@ class Analyze(BaseModel):
     voice_isolation: bool = True
     judge: bool = False
     ai: dict | None = None
-    top_n: int = Field(default=20, ge=1, le=250)
-    min_seconds: int = Field(default=15, ge=1, le=900)
-    max_seconds: int = Field(default=90, ge=1, le=900)
+    top_n: int | None = Field(default=None, ge=1, le=250)
+    min_seconds: int | None = Field(default=None, ge=1, le=900)
+    max_seconds: int | None = Field(default=None, ge=1, le=900)
 
 
 class Edit(BaseModel):
@@ -113,6 +115,8 @@ class Desk:
 
     def analyze(self, form: Analyze) -> None:
         cfg = config(self.cfg_path)
+        apply_preset(cfg, form.preset)
+        cfg["analysis"]["output_language"] = form.output_language
         cfg["analysis"].update(
             {
                 k: getattr(form, k)
@@ -132,7 +136,10 @@ class Desk:
             for k in ("provider", "endpoint", "model", "api_key", "vision"):
                 if k in form.ai and form.ai[k] is not None:
                     cfg["judge"][k] = form.ai[k]
-        cfg["clips"].update({k: getattr(form, k) for k in ("top_n", "min_seconds", "max_seconds")})
+        for k in ("top_n", "min_seconds", "max_seconds"):
+            val = getattr(form, k)
+            if val is not None:
+                cfg["clips"][k] = val
         p = detect(Path(form.path), cfg, Path(form.chat) if form.chat else None, self.progress)
         with self.lock:
             old = self.file(p)
@@ -212,7 +219,7 @@ def create_app(cfg_path: Path = ROOT / "config.toml") -> FastAPI:
 
     @app.post("/api/analyze")
     def analyze(form: Analyze):
-        if form.max_seconds < form.min_seconds:
+        if form.min_seconds is not None and form.max_seconds is not None and form.max_seconds < form.min_seconds:
             raise HTTPException(422, "Invalid clip duration")
         desk.begin(lambda: desk.analyze(form))
         return {"started": True}
