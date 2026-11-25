@@ -55,6 +55,8 @@ func formatTrackLabel(tr AudioTrack, pt bool) string {
 func (u *desk) analysisDialog(path string) {
 	t := u.t
 	var d *walk.Dialog
+	var basic, advanced *walk.Composite
+	var toggle *walk.PushButton
 	var accept, cancel, probeBtn, facecamBtn, aiBtn *walk.PushButton
 	var chat, video *walk.LineEdit
 	var audio, transcribe, visual, voiceIso, facecamBox, judge *walk.CheckBox
@@ -147,7 +149,7 @@ func (u *desk) analysisDialog(path string) {
 		}()
 	}
 
-	err := (Dialog{
+	err := u.dialog(Dialog{
 		AssignTo:      &d,
 		Title:         t("Analisar gravação", "Analyze recording"),
 		DefaultButton: &accept,
@@ -168,73 +170,88 @@ func (u *desk) analysisDialog(path string) {
 						runProbe(f.FilePath, false)
 					}
 				}},
-				PushButton{AssignTo: &probeBtn, Text: t("Ler faixas", "Read tracks"), OnClicked: func() {
-					runProbe(video.Text(), false)
+			}},
+			PushButton{AssignTo: &toggle, Text: t("Configurar OBS, facecam, IA e chat…", "Configure OBS, facecam, AI and chat…"), OnClicked: func() {
+				show := !advanced.Visible()
+				advanced.SetVisible(show)
+				basic.SetVisible(!show)
+				if show {
+					toggle.SetText(t("Voltar aos ajustes de corte", "Back to clip settings"))
+				} else {
+					toggle.SetText(t("Configurar OBS, facecam, IA e chat…", "Configure OBS, facecam, AI and chat…"))
+				}
+				d.SetSize(d.MinSize())
+			}},
+			Composite{AssignTo: &basic, Layout: VBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+				Label{Text: t("Quais sinais procurar?", "Which signals should be used?"), Font: font(10, true)},
+				CheckBox{AssignTo: &audio, Checked: u.opts.audio, Text: t("Áudio · picos de volume, risadas e reações", "Audio · volume spikes, laughter and reactions")},
+				CheckBox{AssignTo: &transcribe, Checked: u.opts.transcribe, Text: t("Transcrição · usa as falas para encontrar contexto", "Transcription · use speech to find context")},
+				CheckBox{AssignTo: &visual, Checked: u.opts.visual, Text: t("Imagem geral · mudanças de cena e movimento", "Full video · scene changes and motion")},
+				Composite{Layout: Grid{Columns: 2, MarginsZero: true}, Children: []Widget{
+					Label{Text: t("Duração mínima do corte (s)", "Minimum clip length (s)")}, num(&lo, u.opts.min, 900),
+					Label{Text: t("Duração máxima do corte (s)", "Maximum clip length (s)")}, num(&hi, u.opts.max, 900),
+					Label{Text: t("Quantidade máxima de destaques", "Maximum highlights")}, num(&count, u.opts.limit, 250),
 				}},
 			}},
-			Label{Text: t("Captura de fala do(a) streamer (OBS / filtro leve)", "Streamer speech capture (OBS / lightweight filter)"), Font: font(10, true)},
-			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-				Label{Text: t("Faixa de áudio do microfone (OBS):", "OBS microphone audio track:")},
-				ComboBox{
-					AssignTo:     &trackBox,
-					Model:        []string{t("Padrão / Mix principal (Faixa 1)", "Default / Primary mix (Track 1)")},
-					CurrentIndex: 0,
+			Composite{AssignTo: &advanced, Visible: false, Layout: VBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
+				Label{Text: t("Áudio da gravação", "Recording audio"), Font: font(10, true)},
+				Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+					Label{Text: t("Faixa de áudio do microfone (OBS):", "OBS microphone audio track:")},
+					ComboBox{
+						AssignTo:     &trackBox,
+						Model:        []string{t("Padrão / Mix principal (Faixa 1)", "Default / Primary mix (Track 1)")},
+						CurrentIndex: 0,
+					},
+					PushButton{AssignTo: &probeBtn, Text: t("Ler faixas", "Read tracks"), OnClicked: func() {
+						runProbe(video.Text(), false)
+					}},
+				}},
+				CheckBox{
+					AssignTo: &voiceIso,
+					Checked:  u.opts.voiceIsolation,
+					Text:     t("Destacar a voz sobre o som do jogo", "Emphasize speech over game audio"),
 				},
-			}},
-			CheckBox{
-				AssignTo: &voiceIso,
-				Checked:  u.opts.voiceIsolation,
-				Text:     t("Isolar fala do áudio do jogo (atenuação estéreo + filtro de frequência + denoise + Silero VAD)", "Isolate speech from game audio (stereo attenuation + bandpass + denoise + Silero VAD)"),
-			},
-			Label{Text: t("Quais sinais procurar?", "Which signals should be used?"), Font: font(10, true)},
-			CheckBox{AssignTo: &audio, Checked: u.opts.audio, Text: t("Áudio · picos de volume, risadas e reações", "Audio · volume spikes, laughter and reactions")},
-			CheckBox{AssignTo: &transcribe, Checked: u.opts.transcribe, Text: t("Transcrição · usa as falas para encontrar contexto", "Transcription · use speech to find context")},
-			CheckBox{AssignTo: &visual, Checked: u.opts.visual, Text: t("Imagem geral · mudanças de cena e movimento", "Full video · scene changes and motion")},
-			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-				CheckBox{AssignTo: &facecamBox, Checked: u.opts.facecam, Text: t("Facecam · expressões e movimento facial", "Facecam · facial expression and movement")},
-				HSpacer{},
-				PushButton{AssignTo: &facecamBtn, Text: t("Marcar Facecam no vídeo…", "Select Facecam region…"), OnClicked: func() {
-					clean := strings.Trim(strings.TrimSpace(video.Text()), "\"")
-					if hasProbe && probed.Meta.Path != "" && strings.EqualFold(filepath.Clean(probed.Meta.Path), filepath.Clean(clean)) && probed.Frame != "" {
-						if updated, ok := u.facecamDialog(d, clean, probed, currentROI); ok {
-							currentROI = updated
-							if currentROI != nil {
-								facecamBox.SetChecked(true)
+				Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+					CheckBox{AssignTo: &facecamBox, Checked: u.opts.facecam, Text: t("Facecam · expressões e movimento facial", "Facecam · facial expression and movement")},
+					HSpacer{},
+					PushButton{AssignTo: &facecamBtn, Text: t("Marcar Facecam no vídeo…", "Select Facecam region…"), OnClicked: func() {
+						clean := strings.Trim(strings.TrimSpace(video.Text()), "\"")
+						if hasProbe && probed.Meta.Path != "" && strings.EqualFold(filepath.Clean(probed.Meta.Path), filepath.Clean(clean)) && probed.Frame != "" {
+							if updated, ok := u.facecamDialog(d, clean, probed, currentROI); ok {
+								currentROI = updated
+								if currentROI != nil {
+									facecamBox.SetChecked(true)
+								}
+								updateFacecamText()
 							}
-							updateFacecamText()
+							return
 						}
-						return
-					}
-					runProbe(clean, true)
+						runProbe(clean, true)
+					}},
 				}},
-			}},
-			Label{AssignTo: &facecamLabel, Text: formatROI(currentROI, 0, 0, u.Lang != "en"), NoPrefix: true},
-			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-				CheckBox{AssignTo: &judge, Checked: u.opts.judge, Text: t("IA · refinar categorias, contexto, descrição e hashtags", "AI · refine categories, context, description and hashtags")},
-				HSpacer{},
-				PushButton{AssignTo: &aiBtn, Text: t("Configurar IA…", "Configure AI…"), OnClicked: func() {
-					if u.aiConfigDialog(d) {
-						updateAIText()
-					}
+				Label{AssignTo: &facecamLabel, Text: formatROI(currentROI, 0, 0, u.Lang != "en"), NoPrefix: true},
+				Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+					CheckBox{AssignTo: &judge, Checked: u.opts.judge, Text: t("IA · refinar categorias, contexto, descrição e hashtags", "AI · refine categories, context, description and hashtags")},
+					HSpacer{},
+					PushButton{AssignTo: &aiBtn, Text: t("Configurar IA…", "Configure AI…"), OnClicked: func() {
+						if u.aiConfigDialog(d) {
+							updateAIText()
+						}
+					}},
 				}},
-			}},
-			Label{AssignTo: &aiLabel, Text: u.aiSummary(), NoPrefix: true},
-			Label{Text: t("Chat da live (opcional)", "Stream chat (optional)")},
-			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-				LineEdit{AssignTo: &chat, Text: u.chat},
-				PushButton{Text: t("Procurar…", "Browse…"), OnClicked: func() {
-					dlg := walk.FileDialog{Title: t("Escolha o chat", "Choose chat file"), Filter: "Chat (*.json, *.csv)|*.json;*.csv"}
-					if ok, e := dlg.ShowOpen(d); e != nil {
-						u.error(e)
-					} else if ok {
-						chat.SetText(dlg.FilePath)
-					}
+				Label{AssignTo: &aiLabel, Text: u.aiSummary(), NoPrefix: true},
+				Label{Text: t("Chat da live (opcional)", "Stream chat (optional)")},
+				Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+					LineEdit{AssignTo: &chat, Text: u.chat},
+					PushButton{Text: t("Procurar…", "Browse…"), OnClicked: func() {
+						dlg := walk.FileDialog{Title: t("Escolha o chat", "Choose chat file"), Filter: "Chat (*.json, *.csv)|*.json;*.csv"}
+						if ok, e := dlg.ShowOpen(d); e != nil {
+							u.error(e)
+						} else if ok {
+							chat.SetText(dlg.FilePath)
+						}
+					}},
 				}},
-			}},
-			Composite{Layout: Grid{Columns: 2, MarginsZero: true}, Children: []Widget{
-				Label{Text: t("Duração mínima do corte (s)", "Minimum clip length (s)")}, num(&lo, u.opts.min, 900),
-				Label{Text: t("Duração máxima do corte (s)", "Maximum clip length (s)")}, num(&hi, u.opts.max, 900),
-				Label{Text: t("Quantidade máxima de destaques", "Maximum highlights")}, num(&count, u.opts.limit, 250),
 			}},
 			Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 				HSpacer{},
@@ -364,7 +381,7 @@ func (u *desk) exportDialog() {
 				portrait = vertical.Checked()
 				d.Accept()
 			}}}})
-	choice, err := (Dialog{AssignTo: &d, Title: u.t("Exportação", "Export"), MinSize: Size{Width: 440}, Layout: VBox{}, DefaultButton: &ok, CancelButton: &cancel, Children: children}).Run(u.mw)
+	choice, err := u.dialog(Dialog{AssignTo: &d, Title: u.t("Exportação", "Export"), MinSize: Size{Width: 440}, Layout: VBox{}, DefaultButton: &ok, CancelButton: &cancel, Children: children}).Run(u.mw)
 	if err != nil {
 		u.error(err)
 	} else if choice == walk.DlgCmdOK {

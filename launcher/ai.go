@@ -149,7 +149,7 @@ func (u *desk) aiConfigDialog(owner walk.Form) bool {
 		}
 	}
 
-	err := (Dialog{
+	err := u.dialog(Dialog{
 		AssignTo:      &dlg,
 		Title:         t("Configurar IA (Local e Nuvem)", "Configure AI (Local & Cloud)"),
 		DefaultButton: &okBtn,
@@ -166,7 +166,7 @@ func (u *desk) aiConfigDialog(owner walk.Form) bool {
 					CurrentIndex: curIdx,
 					OnCurrentIndexChanged: func() {
 						idx := providerBox.CurrentIndex()
-						if idx < 0 || idx >= len(aiProviders) {
+						if idx < 0 || idx >= len(aiProviders) || endpointEdit == nil || modelEdit == nil {
 							return
 						}
 						p := aiProviders[idx]

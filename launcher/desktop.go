@@ -35,36 +35,42 @@ var clipCategories = []categoryDef{
 type settings struct{ Theme, Lang string }
 
 type desk struct {
-	previewCancel                                      context.CancelFunc
-	welcome, reviewArea                                *walk.Composite
-	welcomeLoad                                        *walk.PushButton
+	building              bool
+	cutFields, postFields *walk.Composite
+	switchPage            *walk.PushButton
+	editorTitle           *walk.Label
+	postOpen              bool
+
+	previewCancel       context.CancelFunc
+	welcome, reviewArea *walk.Composite
+	welcomeLoad         *walk.PushButton
 	settings
-	prefs, aiPrefs                                     string
-	ai                                                 AISettings
-	project                                            Review
-	mw                                                 *walk.MainWindow
-	catFilter, clipCategory                            *walk.ComboBox
-	filterCat                                          string
-	visible                                            []int
-	queue                                              *walk.ListBox
-	file, status, reason, queueTitle                   *walk.Label
-	image                                              *walk.ImageView
-	bitmap                                             walk.Image
-	name, contextNote, hashtags                        *walk.LineEdit
-	start, end                                         *walk.NumberEdit
-	description, words                                 *walk.TextEdit
-	load, preview, copyPostBtn                         *walk.PushButton
-	approve, reject, save, export, stop                *walk.PushButton
-	progress                                           *walk.ProgressBar
-	source, chat                                       string
-	index                                              int
-	settingsChanged, busy, restoring                   bool
-	cancelTask                                         context.CancelFunc
-	cancelPath                                         string
-	opts                                               options
-	draftName, draftCategory, draftContext             string
-	draftDescription, draftHashtags                    string
-	draftStart, draftEnd                               float64
+	prefs, aiPrefs                         string
+	ai                                     AISettings
+	project                                Review
+	mw                                     *walk.MainWindow
+	catFilter, clipCategory                *walk.ComboBox
+	filterCat                              string
+	visible                                []int
+	queue                                  *walk.ListBox
+	file, status, reason, queueTitle       *walk.Label
+	image                                  *walk.ImageView
+	bitmap                                 walk.Image
+	name, contextNote, hashtags            *walk.LineEdit
+	start, end                             *walk.NumberEdit
+	description, words                     *walk.TextEdit
+	load, preview, copyPostBtn             *walk.PushButton
+	approve, reject, save, export, stop    *walk.PushButton
+	progress                               *walk.ProgressBar
+	source, chat                           string
+	index                                  int
+	settingsChanged, busy, restoring       bool
+	cancelTask                             context.CancelFunc
+	cancelPath                             string
+	opts                                   options
+	draftName, draftCategory, draftContext string
+	draftDescription, draftHashtags        string
+	draftStart, draftEnd                   float64
 }
 
 func message(s string) { walk.MsgBox(nil, title, s, walk.MsgBoxIconError) }
@@ -74,7 +80,7 @@ func (u *desk) t(pt, en string) string {
 	}
 	return pt
 }
-func font(n int, b bool) Font                { return Font{Family: "Segoe UI", PointSize: n, Bold: b} }
+func font(n int, b bool) Font                { return Font{Family: "Barlow", PointSize: n, Bold: b} }
 func solid(color walk.Color) SolidColorBrush { return SolidColorBrush{Color: color} }
 func (u *desk) error(err error)              { walk.MsgBox(u.mw, title, err.Error(), walk.MsgBoxIconError) }
 
@@ -134,6 +140,7 @@ func desktop() error {
 	if err != nil {
 		return err
 	}
+	loadStudioFonts()
 	aiPrefsPath := filepath.Join(base, "VODCutStudio", "ai_settings.json")
 	u := desk{
 		prefs:     filepath.Join(base, "VODCutStudio", "appearance.json"),
@@ -161,6 +168,7 @@ func desktop() error {
 			return err
 		}
 		u.populate()
+		u.showEditor(u.postOpen)
 		if u.draftName != "" {
 			u.name.SetText(u.draftName)
 			_ = u.start.SetValue(u.draftStart)
@@ -245,19 +253,11 @@ func (u *desk) appearance(theme, lang string) {
 }
 
 func (u *desk) build() error {
+	u.building = true
+	defer func() { u.building = false }()
 	t := u.t
-	body, panel, ink, muted, brand := walk.RGB(40, 24, 29), walk.RGB(59, 36, 42), walk.RGB(255, 244, 245), walk.RGB(228, 200, 204), walk.RGB(157, 29, 53)
-	if u.Theme == "dark" {
-		body, panel, brand = walk.RGB(23, 25, 29), walk.RGB(35, 38, 44), walk.RGB(45, 47, 53)
-	}
-	if u.Theme == "light" {
-		body, panel, ink, muted, brand = walk.RGB(241, 242, 245), walk.RGB(255, 255, 255), walk.RGB(37, 37, 42), walk.RGB(81, 78, 84), walk.RGB(157, 29, 53)
-	}
-	themeMenu := Menu{Text: t("Aparência", "Appearance")}
-	for _, v := range []struct{ id, pt, en string }{{"red", "Vermelho", "Red"}, {"dark", "Escuro", "Dark"}, {"light", "Branco", "Light"}} {
-		v := v
-		themeMenu.Items = append(themeMenu.Items, Action{Text: t(v.pt, v.en), Checked: u.Theme == v.id, OnTriggered: func() { u.appearance(v.id, u.Lang) }})
-	}
+	p := u.colors()
+	body, panel, ink, muted := p.base, p.panel, p.ink, p.muted
 	filterLabels := []string{t("Todas as categorias", "All categories")}
 	catLabels := make([]string, len(clipCategories))
 	filterIdx := 0
@@ -270,43 +270,24 @@ func (u *desk) build() error {
 		}
 	}
 	caption := func(s string) Label { return Label{Text: s, TextColor: muted, NoPrefix: true, Font: font(9, true)} }
-	return (MainWindow{
-		AssignTo: &u.mw, Title: title, Font: font(10, false), Size: Size{Width: 1140, Height: 760}, MinSize: Size{Width: 840, Height: 600},
-		Background: solid(body), Layout: VBox{MarginsZero: true, SpacingZero: true},
-		MenuItems: []MenuItem{
-			themeMenu,
-			Menu{Text: "Idioma / Language", Items: []MenuItem{
-				Action{Text: "Português", Checked: u.Lang != "en", OnTriggered: func() { u.appearance(u.Theme, "pt") }},
-				Action{Text: "English", Checked: u.Lang == "en", OnTriggered: func() { u.appearance(u.Theme, "en") }},
-			}},
-			Menu{Text: t("IA", "AI"), Items: []MenuItem{
-				Action{Text: t("Configurar IA (Local / Nuvem)…", "Configure AI (Local / Cloud)…"), OnTriggered: func() {
-					if !u.busy {
-						u.aiConfigDialog(u.mw)
-					}
-				}},
-			}},
-		},
+	view := MainWindow{
+		AssignTo: &u.mw, Title: title, Font: font(11, false), Size: Size{Width: 1140, Height: 760}, MinSize: Size{Width: 840, Height: 600},
+		Background: solid(body), Layout: VBox{Alignment: AlignHNearVNear, MarginsZero: true, SpacingZero: true},
 		OnDropFiles: func(paths []string) {
 			if len(paths) > 0 && !u.busy && !u.restoring {
 				u.analysisDialog(paths[0])
 			}
 		},
 		Children: []Widget{
-			Composite{Background: solid(brand), Layout: HBox{Margins: Margins{20, 10, 20, 10}}, Children: []Widget{
-				Label{Text: title, TextColor: walk.RGB(255, 255, 255), Font: font(21, true)}, HSpacer{},
-				PushButton{AssignTo: &u.load, Text: t("Escolher vídeo…", "Choose video…"), OnClicked: u.pickVideo},
+			Composite{MaxSize: Size{Height: 64}, Background: solid(panel), Layout: HBox{Margins: Margins{20, 12, 20, 12}, Spacing: 10}, Children: []Widget{
+				brandMark(p), Label{Text: title, Font: font(20, true), TextColor: ink}, HSpacer{},
+				PushButton{AssignTo: &u.load, Text: t("Trocar vídeo…", "Change video…"), OnClicked: u.pickVideo},
+				PushButton{Text: t("Preferências", "Preferences"), OnClicked: u.preferences},
 			}},
-			Composite{Background: solid(body), Layout: VBox{Margins: Margins{18, 8, 18, 12}, Spacing: 8}, Children: []Widget{
-				Label{AssignTo: &u.file, TextColor: muted, EllipsisMode: EllipsisEnd, NoPrefix: true},
-				Composite{AssignTo: &u.welcome, Background: solid(panel), Layout: VBox{Margins: Margins{32, 26, 32, 26}, Spacing: 12}, Children: []Widget{
-					VSpacer{},
-					Label{Text: t("Encontre os destaques da sua live", "Find highlights in your stream"), Font: font(24, true), TextColor: ink},
-					TextLabel{Text: t("Escolha uma gravação para encontrar momentos engraçados, intensos, fofos e histórias marcantes — com isolamento de fala, facecam e textos prontos para postar.", "Choose a recording to find funny, intense, cute, and memorable story moments — with speech isolation, facecam analysis, and ready-to-share posts."), MinSize: Size{Width: 320}, TextColor: muted},
-					Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{PushButton{AssignTo: &u.welcomeLoad, Text: t("Escolher vídeo…", "Choose video…"), MinSize: Size{Width: 150, Height: 36}, OnClicked: u.pickVideo}, HSpacer{}}},
-					VSpacer{},
-				}},
-				Composite{AssignTo: &u.reviewArea, Visible: false, Layout: HBox{MarginsZero: true, Spacing: 12}, Children: []Widget{
+			Composite{StretchFactor: 50, Background: solid(body), Layout: VBox{Alignment: AlignHNearVNear, Margins: Margins{18, 12, 18, 12}, Spacing: 10}, Children: []Widget{
+				Label{AssignTo: &u.file, Font: font(12, true), TextColor: muted, EllipsisMode: EllipsisEnd, NoPrefix: true},
+				u.welcomePanel(),
+				Composite{AssignTo: &u.reviewArea, StretchFactor: 30, Visible: false, Layout: HBox{MarginsZero: true, Spacing: 12}, Children: []Widget{
 					Composite{StretchFactor: 4, Background: solid(panel), Layout: VBox{Margins: Margins{14, 10, 14, 12}, Spacing: 7}, Children: []Widget{
 						Label{AssignTo: &u.queueTitle, Font: font(15, true), TextColor: ink},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -316,6 +297,9 @@ func (u *desk) build() error {
 								Model:        filterLabels,
 								CurrentIndex: filterIdx,
 								OnCurrentIndexChanged: func() {
+									if u.building {
+										return
+									}
 									idx := u.catFilter.CurrentIndex()
 									if idx <= 0 || idx > len(clipCategories) {
 										u.filterCat = "all"
@@ -327,48 +311,66 @@ func (u *desk) build() error {
 								},
 							},
 						}},
-						ListBox{AssignTo: &u.queue, MinSize: Size{Width: 230, Height: 120}, OnCurrentIndexChanged: u.selectClip},
+						ListBox{AssignTo: &u.queue, ItemStyler: clipRows{u}, Model: []string{}, Font: font(11, false), MinSize: Size{Width: 230, Height: 120}, OnCurrentIndexChanged: u.selectClip},
 						PushButton{AssignTo: &u.export, Text: t("Exportar aprovados…", "Export approved clips…"), OnClicked: u.exportDialog},
 					}},
 					Composite{StretchFactor: 7, Background: solid(panel), Layout: VBox{Margins: Margins{14, 10, 14, 12}, Spacing: 5}, Children: []Widget{
-						Label{Text: t("Revisão do corte", "Clip review"), Font: font(15, true), TextColor: ink},
+						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{Label{AssignTo: &u.editorTitle, Font: font(17, true), TextColor: ink}, HSpacer{}, PushButton{AssignTo: &u.switchPage, OnClicked: func() { u.showEditor(!u.postOpen) }}}},
 						ImageView{AssignTo: &u.image, Background: solid(walk.RGB(28, 28, 32)), Mode: ImageViewModeZoom, MinSize: Size{Height: 64}, StretchFactor: 2},
 						Label{AssignTo: &u.reason, TextColor: muted, EllipsisMode: EllipsisEnd, NoPrefix: true},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							caption(t("Nome", "Name")), LineEdit{AssignTo: &u.name, MaxLength: 160},
-							caption(t("Categoria", "Category")), ComboBox{AssignTo: &u.clipCategory, Model: catLabels, CurrentIndex: 0, MaxSize: Size{Width: 145}},
-							PushButton{AssignTo: &u.preview, Text: t("Ver prévia", "Preview"), OnClicked: func() { u.edit("preview", "") }},
+						Composite{AssignTo: &u.cutFields, Layout: VBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								caption(t("Nome", "Name")), LineEdit{AssignTo: &u.name, MaxLength: 160},
+								caption(t("Categoria", "Category")), ComboBox{AssignTo: &u.clipCategory, Model: catLabels, CurrentIndex: 0, MaxSize: Size{Width: 145}},
+								PushButton{AssignTo: &u.preview, Text: t("Ver prévia", "Preview"), OnClicked: func() { u.edit("preview", "") }},
+							}},
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								caption(t("Início (s)", "Start (s)")), NumberEdit{AssignTo: &u.start, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1},
+								caption(t("Fim (s)", "End (s)")), NumberEdit{AssignTo: &u.end, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1},
+							}},
+							caption(t("Transcrição", "Transcript")),
+							TextEdit{AssignTo: &u.words, ReadOnly: true, VScroll: true, MinSize: Size{Height: 34}, MaxSize: Size{Height: 68}},
 						}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							caption(t("Início (s)", "Start (s)")), NumberEdit{AssignTo: &u.start, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1},
-							caption(t("Fim (s)", "End (s)")), NumberEdit{AssignTo: &u.end, Decimals: 3, MinValue: 0, MaxValue: 9999999, Increment: 0.1},
+						Composite{AssignTo: &u.postFields, Visible: false, Layout: VBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								caption(t("Contexto", "Context")), LineEdit{AssignTo: &u.contextNote},
+							}},
+							caption(t("Descrição para post", "Post description")),
+							TextEdit{AssignTo: &u.description, VScroll: true, MinSize: Size{Height: 38}, MaxSize: Size{Height: 64}},
+							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
+								caption(t("Hashtags", "Hashtags")), LineEdit{AssignTo: &u.hashtags},
+							}},
 							PushButton{AssignTo: &u.copyPostBtn, Text: t("Copiar post", "Copy post"), OnClicked: u.copyPost},
 						}},
 						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							caption(t("Contexto", "Context")), LineEdit{AssignTo: &u.contextNote},
-						}},
-						caption(t("Descrição para post", "Post description")),
-						TextEdit{AssignTo: &u.description, VScroll: true, MinSize: Size{Height: 38}, MaxSize: Size{Height: 64}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-							caption(t("Hashtags", "Hashtags")), LineEdit{AssignTo: &u.hashtags},
-						}},
-						caption(t("Transcrição", "Transcript")),
-						TextEdit{AssignTo: &u.words, ReadOnly: true, VScroll: true, MinSize: Size{Height: 34}, MaxSize: Size{Height: 68}},
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
 							PushButton{AssignTo: &u.save, Text: t("Salvar ajustes", "Save edits"), OnClicked: func() { u.edit("edit", "") }},
 							PushButton{AssignTo: &u.reject, Text: t("Rejeitar", "Reject"), OnClicked: func() { u.edit("edit", "rejected") }},
-							PushButton{AssignTo: &u.approve, Text: t("Aprovar corte", "Approve clip"), OnClicked: func() { u.edit("edit", "approved") }},
+							PushButton{Name: "primary", AssignTo: &u.approve, Text: t("Aprovar corte", "Approve clip"), OnClicked: func() { u.edit("edit", "approved") }},
 						}},
 					}},
 				}},
 				Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
-					Label{AssignTo: &u.status, TextColor: ink, StretchFactor: 3, EllipsisMode: EllipsisEnd, NoPrefix: true, Text: t("Escolha um vídeo ou arraste o arquivo para cá.", "Choose a video or drop the file here.")},
+					Label{AssignTo: &u.status, TextColor: ink, StretchFactor: 3, EllipsisMode: EllipsisEnd, NoPrefix: true, Text: ""},
 					ProgressBar{AssignTo: &u.progress, MaxValue: 100, MaxSize: Size{Width: 165}, Visible: false},
 					PushButton{AssignTo: &u.stop, Text: t("Parar", "Stop"), Visible: false, OnClicked: u.stopOperation},
 				}},
 			}},
 		},
-	}).Create()
+	}
+	u.skin(view.Children, body, nil)
+	return view.Create()
+}
+func (u *desk) showEditor(post bool) {
+	u.postOpen = post
+	u.cutFields.SetVisible(!post)
+	u.postFields.SetVisible(post)
+	if post {
+		u.editorTitle.SetText(u.t("Texto do post", "Post text"))
+		u.switchPage.SetText(u.t("Voltar ao corte", "Back to clip"))
+	} else {
+		u.editorTitle.SetText(u.t("Revisão do corte", "Clip review"))
+		u.switchPage.SetText(u.t("Editar post", "Edit post"))
+	}
 }
 
 func (u *desk) pickVideo() { u.analysisDialog(u.source) }
@@ -393,6 +395,9 @@ func (u *desk) clip() *Clip {
 }
 
 func (u *desk) populate() {
+	if u.building || u.queue == nil || u.status == nil {
+		return
+	}
 	rows := make([]string, 0, len(u.project.Clips))
 	u.visible = u.visible[:0]
 	approved := 0
@@ -413,11 +418,12 @@ func (u *desk) populate() {
 		u.visible = append(u.visible, i)
 		rows = append(rows, fmt.Sprintf("%s · [%s] %s · %s", clock(c.Start), catTag, c.Name, state))
 	}
-	u.file.SetText(u.project.Meta.Path)
+	u.file.SetText(filepath.Base(u.project.Meta.Path))
+	u.file.SetToolTipText(u.project.Meta.Path)
 	if u.project.Meta.Path == "" {
-		u.file.SetText(u.t("Vídeos MP4, MKV ou MOV", "MP4, MKV or MOV recordings"))
+		u.file.SetText(u.t("Área de importação", "Import workspace"))
 	}
-	u.queueTitle.SetText(fmt.Sprintf(u.t("Destaques  ·  %d/%d", "Highlights  ·  %d/%d"), len(rows), len(u.project.Clips)))
+	u.queueTitle.SetText(fmt.Sprintf(u.t("Destaques  ·  %d de %d", "Highlights  ·  %d of %d"), len(rows), len(u.project.Clips)))
 	idx := u.index
 	_ = u.queue.SetModel(rows)
 	if len(rows) > 0 {
@@ -428,12 +434,12 @@ func (u *desk) populate() {
 	}
 	u.selectClip()
 	if u.project.Project != "" {
-		u.status.SetText(fmt.Sprintf(u.t("%d destaques encontrados  ·  %d aprovados", "%d highlights found  ·  %d approved"), len(u.project.Clips), approved))
+		u.status.SetText(fmt.Sprintf(u.t("Destaques: %d     Aprovados: %d", "Highlights: %d     Approved: %d"), len(u.project.Clips), approved))
 	}
 }
 
 func (u *desk) selectClip() {
-	if u.queue == nil || u.words == nil {
+	if u.building || u.queue == nil || u.words == nil {
 		return
 	}
 	u.index = u.queue.CurrentIndex()
@@ -493,6 +499,7 @@ func (u *desk) controls() {
 	u.reviewArea.SetVisible(review)
 	u.load.SetVisible(review)
 	u.welcomeLoad.SetEnabled(idle)
+	u.switchPage.SetEnabled(has)
 	u.load.SetEnabled(idle)
 	u.queue.SetEnabled(idle)
 	u.catFilter.SetEnabled(idle && review)

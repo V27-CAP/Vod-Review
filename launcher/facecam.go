@@ -161,7 +161,7 @@ func (u *desk) facecamDialog(owner walk.Form, videoPath string, probed ProbeResu
 		}
 	}
 
-	err = (Dialog{
+	err = u.dialog(Dialog{
 		AssignTo:      &dlg,
 		Title:         t("Marcar região da Facecam", "Select Facecam region"),
 		DefaultButton: &saveBtn,

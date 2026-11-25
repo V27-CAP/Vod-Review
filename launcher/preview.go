@@ -209,7 +209,7 @@ func (u *desk) playPreview(res PreviewResult, clip Clip) {
 		return round3(previewStart + float64(currentPosMs)/1000.0)
 	}
 
-	err := (Dialog{
+	err := u.dialog(Dialog{
 		AssignTo:     &dlg,
 		Title:        t("Prévia do corte · ", "Clip preview · ") + clip.Name,
 		Size:         Size{Width: 820, Height: 560},
