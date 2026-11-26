@@ -23,9 +23,9 @@ class PresetsAndEnglishTests(unittest.TestCase):
         apply_preset(cfg, "funny_moments")
         self.assertEqual(cfg["analysis"]["preset"], "funny_moments")
         self.assertEqual(cfg["clips"]["min_seconds"], 5)
-        self.assertEqual(cfg["clips"]["max_seconds"], 45)
+        self.assertEqual(cfg["clips"]["max_seconds"], 55)
         self.assertEqual(cfg["clips"]["top_n"], 60)
-        self.assertEqual(cfg["clips"]["merge_gap"], 6)
+        self.assertEqual(cfg["clips"]["merge_gap"], 8)
         self.assertEqual(cfg["judge"]["style"], "funny_moments")
 
         apply_preset(cfg, "best_moments")
@@ -68,10 +68,10 @@ class PresetsAndEnglishTests(unittest.TestCase):
         cfg = config()
         apply_preset(cfg, "funny_moments")
         audio = np.zeros(300)
-        audio[[50, 64, 78, 92]] = 1
+        audio[[50, 64, 78, 92, 106]] = 1
         clips, _ = rank({"loudness": audio}, [], [], [], 300, cfg)
         self.assertEqual(len(clips), 2)
-        self.assertTrue(any(c["start"] <= 92 < c["end"] for c in clips))
+        self.assertTrue(any(c["start"] <= 106 < c["end"] for c in clips))
 
     def test_disconnected_ai_preserves_local_results(self):
         from vodcut import detector

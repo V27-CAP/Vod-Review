@@ -156,7 +156,7 @@ func desktop() error {
 			voiceIsolation: true,
 			audioTrack:     -1,
 			min:            5,
-			max:            45,
+			max:            55,
 			limit:          60,
 		},
 	}

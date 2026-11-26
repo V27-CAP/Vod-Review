@@ -41,7 +41,7 @@ vad_threshold = 0.5
 vad_min_speech_ms = 250
 vad_min_silence_ms = 400
 laughter_pattern = 'k{3,}|(?:ha){2,}|(?:ja){3,}|www+|笑|草|\b(?:kekw|lulw?|lmao|lmfao|absolutely|lol|pog(?:champ)?)\b'
-reaction_pattern = '''oh my god|oh god|oh no|no way|what the|wait what|holy (?:shit|crap|cow|hell|moly)|no,? no,? no|let'?s go|we did it|i'?m dead|i'?m hit|i'?m (?:not )?crying|tearing up|which way|where (?:is|are) (?:he|she|they|you|it)|stop it|help me|excuse me|\[(?:laughter|laughing|screaming|screams?|crying|gasps?|snorts?|cheering)\]|\b(?:omg|wtf|fuck\w*|shit\w*|goddamn|damn it|bullshit|fraud|pera[ií]?|socorro|nossa|caraca)\b|meu deus|não acredito|うそ|やば|まじ|えっ|[!！]|\?!|\?\?|(?:ha){2,}|k{3,}|笑'''
+reaction_pattern = '''oh my god|oh god|oh no|oh shit|oh fuck|no way|what the|wait what|what the hell|fucking hell|holy (?:shit|crap|cow|hell|moly)|no,? no,? no|no{3,}|ye+s{2,}|a+h{3,}|let'?s go|we did it|i'?m dead|i'?m hit|i'?m panick\w*|i panicked|i forgot|blew up|too high|this is so|i'?m goated|i'?m (?:not )?crying|tearing up|which way|where (?:is|are) (?:he|she|they|you|it)|stop it|help me|excuse me|\[(?:laughter|laughing|screaming|screams?|crying|gasps?|snorts?|cheering)\]|\b(?:omg|wtf|fuck\w*|shit\w*|goddamn|damn it|bullshit|pera[ií]?|socorro|nossa|caraca)\b|meu deus|não acredito|うそ|やば|まじ|えっ|[!！]|\?!|\?\?|(?:ha){2,}|k{3,}|笑'''
 
 [weights]
 loudness = 0.14

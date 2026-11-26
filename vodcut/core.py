@@ -38,13 +38,13 @@ PRESETS: dict[str, dict[str, dict[str, Any]]] = {
     "funny_moments": {
         "clips": {
             "min_seconds": 5,
-            "max_seconds": 45,
-            "pre_roll": 4,
-            "post_roll": 4,
+            "max_seconds": 55,
+            "pre_roll": 6,
+            "post_roll": 5,
             "snap_seconds": 3,
             "top_n": 60,
             "min_score": 0.14,
-            "merge_gap": 6,
+            "merge_gap": 8,
         },
         "weights": {
             "loudness": 0.16,

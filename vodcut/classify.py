@@ -47,14 +47,15 @@ _PATTERNS = {
     "funny": re.compile(
         r"k{3,}|(?:ha){2,}|(?:rs){2,}|(?:ja){3,}|www+|笑|草|"
         r"\[(?:laughter|laughing|snorts?)\]|"
+        r"blew up|i panicked|i forgot|not a compliment|that'?s what they call me|i'?m goated|i didn'?t notice|"
         r"\b(?:kekw|lulw?|lma+o|lmfao|lol|rofl|piada|engraçad\w*|rindo|morri|zueira|troll\w*|meme|"
-        r"funny|hilarious|joke|laugh\w*|fraud|cursed|bruh|shut up|excuse me|goddamn|bullshit|clown|idiot|fail\w*)\b",
+        r"funny|hilarious|joke|laugh\w*|cursed|bruh|shut up|excuse me|goddamn|bullshit|clown|idiot|fail\w*)\b",
         re.IGNORECASE,
     ),
     "intense": re.compile(
         r"!{2,}|\?!|\?\?|"
         r"\[(?:screaming|screams?|gasps?|panting)\]|"
-        r"oh my god|oh god|what the|no,? no|we did it|i'?m dead|i'?m hit|jump ?scare|"
+        r"oh my god|oh god|what the|what the hell|fucking hell|no,? no|no{3,}|a+h{3,}|we did it|i'?m dead|i'?m hit|i'?m panick\w*|too high|mission failed|time'?s up|jump ?scare|"
         r"\b(?:clutch|boss|morreu|caraca|caralho|meu deus|não acredito|nao acredito|socorro|insan\w*|absurd\w*|"
         r"corre|cuidado|susto|grit\w*|gg|ganhei|perdi|nervos\w*|tens\w*|crazy|omg|wtf|no way|let'?s go|"
         r"pog(?:champ)?|holy|fuck\w*|shit\w*|warning|missile|dodge|crash\w*|scary|terrifying|run|help)\b",

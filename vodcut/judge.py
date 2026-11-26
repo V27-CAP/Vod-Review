@@ -56,8 +56,9 @@ def _extract_json(raw: str) -> dict:
 _STYLE_GUIDANCE = {
     "funny_moments": (
         " You are editing a fast-paced YouTube 'Funny Moments' livestream compilation (often VTuber or gaming collabs)."
-        " Reward punchy fails, panic screams, self-deprecating jokes, absurd one-liners, chaotic banter, and hilarious reactions,"
-        " even when the clip relies on gameplay context."
+        " Reward confidence-into-instant-fail disasters, escalating panic screams (forgetting controls, timers, crashes),"
+        " deadpan/dry one-liners and double-meaning giggles even during quiet menus, absurd callbacks, and chaotic banter,"
+        " even when the clip relies on gameplay context. Down-rank routine NPC or game-radio dialogue without a strong streamer reaction."
     ),
     "best_moments": (
         " You are editing a long-form YouTube 'Best Moments' VOD highlight movie (often VTuber or gaming streams)."

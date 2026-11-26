@@ -29,7 +29,7 @@ type presetDef struct {
 }
 
 var editPresets = []presetDef{
-	{id: "funny_moments", pt: "Funny Moments (cortes rápidos · 5–45s)", en: "Funny Moments (fast cuts · 5–45s)", min: 5, max: 45, limit: 60},
+	{id: "funny_moments", pt: "Funny Moments (cortes rápidos · 5–55s)", en: "Funny Moments (fast cuts · 5–55s)", min: 5, max: 55, limit: 60},
 	{id: "best_moments", pt: "Best Moments / História (cenas longas · 10–240s)", en: "Best Moments / Story Edit (long arcs · 10–240s)", min: 10, max: 240, limit: 45},
 	{id: "short_clips", pt: "Clipes Curtos / Reels (independentes · 15–90s)", en: "Short Clips / Reels (standalone · 15–90s)", min: 15, max: 90, limit: 20},
 }
