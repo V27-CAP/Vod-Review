@@ -146,12 +146,12 @@ func (u *desk) portablePreview(ctx context.Context, frame, panel *walk.Composite
 		u.error(err)
 		return
 	}
-	initialSize := u.videoBounds(frame)
+
 	caption := fmt.Sprintf("VODCut-%d-%d", os.Getpid(), time.Now().UnixNano())
 	go func() {
 		player, err := playerPath()
 		if err == nil && ctx.Err() == nil {
-			args := []string{"-loglevel", "error", "-autoexit", "-noborder", "-x", strconv.Itoa(max(1, initialSize.Width)), "-y", strconv.Itoa(max(1, initialSize.Height)), "-left", "-32000", "-top", "-32000", "-window_title", caption, "-ss", fmt.Sprintf("%.3f", offset), path}
+			args := []string{"-loglevel", "error", "-autoexit", "-noborder", "-left", "-32000", "-top", "-32000", "-window_title", caption, "-ss", fmt.Sprintf("%.3f", offset), path}
 			cmd := exec.CommandContext(ctx, player, args...)
 			cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
 			var diagnostic bytes.Buffer
