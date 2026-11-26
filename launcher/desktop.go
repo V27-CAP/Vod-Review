@@ -42,6 +42,7 @@ type desk struct {
 	postOpen              bool
 
 	previewCancel       context.CancelFunc
+	previewHost         *walk.Composite
 	welcome, reviewArea *walk.Composite
 	welcomeLoad         *walk.PushButton
 	settings
@@ -213,12 +214,10 @@ func desktop() error {
 				}
 				u.cancelTask()
 			}
+			u.stopPreview()
 		})
 		u.mw.Run()
-		if u.previewCancel != nil {
-			u.previewCancel()
-			u.previewCancel = nil
-		}
+
 		if u.bitmap != nil {
 			u.bitmap.Dispose()
 			u.bitmap = nil
@@ -320,8 +319,15 @@ func (u *desk) build() error {
 						PushButton{AssignTo: &u.export, Text: t("Exportar aprovados…", "Export approved clips…"), OnClicked: u.exportDialog},
 					}},
 					Composite{StretchFactor: 7, Background: solid(panel), Layout: VBox{Margins: Margins{14, 10, 14, 12}, Spacing: 5}, Children: []Widget{
-						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{Label{AssignTo: &u.editorTitle, Font: font(17, true), TextColor: ink}, HSpacer{}, PushButton{AssignTo: &u.preview, Text: t("Ver prévia", "Preview"), OnClicked: func() { u.edit("preview", "") }}, PushButton{AssignTo: &u.switchPage, OnClicked: func() { u.showEditor(!u.postOpen) }}}},
+						Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{Label{AssignTo: &u.editorTitle, Font: font(17, true), TextColor: ink}, HSpacer{}, PushButton{AssignTo: &u.preview, Text: t("Reproduzir", "Play"), OnClicked: func() {
+							if u.previewCancel != nil {
+								u.stopPreview()
+							} else {
+								u.edit("preview", "")
+							}
+						}}, PushButton{AssignTo: &u.switchPage, OnClicked: func() { u.showEditor(!u.postOpen) }}}},
 						ImageView{AssignTo: &u.image, Background: solid(walk.RGB(28, 28, 32)), Mode: ImageViewModeZoom, MinSize: Size{Height: 64}, StretchFactor: 2},
+						Composite{AssignTo: &u.previewHost, Visible: false, StretchFactor: 2, Layout: VBox{MarginsZero: true}},
 						Label{AssignTo: &u.reason, TextColor: muted, EllipsisMode: EllipsisEnd, NoPrefix: true},
 						Composite{AssignTo: &u.cutFields, Layout: VBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
 							Composite{Layout: HBox{MarginsZero: true}, Children: []Widget{
@@ -447,6 +453,7 @@ func (u *desk) selectClip() {
 	if u.building || u.queue == nil || u.words == nil {
 		return
 	}
+	u.stopPreview()
 	u.index = u.queue.CurrentIndex()
 	c := u.clip()
 	old := u.bitmap

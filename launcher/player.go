@@ -2,17 +2,22 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/lxn/walk"
+	. "github.com/lxn/walk/declarative"
+	"github.com/lxn/win"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
@@ -90,35 +95,99 @@ func playerPath() (string, error) {
 	return target, nil
 }
 
-func (u *desk) portablePreview(path string, startOffset float64) {
-	if u.previewCancel != nil {
-		u.previewCancel()
+func (u *desk) videoBounds(frame *walk.Composite) walk.Rectangle {
+	r := frame.ClientBoundsPixels()
+	w, h := u.project.Meta.Width, u.project.Meta.Height
+	if r.Width <= 0 || r.Height <= 0 || w <= 0 || h <= 0 {
+		return r
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	u.previewCancel = cancel
+	width := min(r.Width, r.Height*w/h)
+	height := max(1, width*h/w)
+	return walk.Rectangle{X: (r.Width - width) / 2, Y: (r.Height - height) / 2, Width: max(1, width), Height: height}
+}
+
+func (u *desk) portablePreview(ctx context.Context, frame, panel *walk.Composite, path string, offset float64) {
 	window := u.mw
-	caption := title + u.t(" · Prévia   |   Espaço para pausar · Esc para fechar", " · Preview   |   Space to pause · Esc to close")
-	u.status.SetText(u.t("Abrindo a prévia…", "Opening preview…"))
+	var child win.HWND
+	fit := func() {
+		if child != 0 {
+			r := u.videoBounds(frame)
+			win.MoveWindow(child, int32(r.X), int32(r.Y), int32(r.Width), int32(r.Height), true)
+		}
+	}
+	frame.SizeChanged().Attach(fit)
+	key := func(v uintptr) {
+		if child != 0 {
+			win.PostMessage(child, win.WM_KEYDOWN, v, 0)
+			win.PostMessage(child, win.WM_KEYUP, v, 0)
+		}
+	}
+	var controls *walk.Composite
+	var play *walk.PushButton
+	paused := false
+	row := []Widget{Composite{AssignTo: &controls, Enabled: false, Layout: HBox{MarginsZero: true}, Children: []Widget{
+		PushButton{AssignTo: &play, Text: u.t("Pausar", "Pause"), OnClicked: func() {
+			key(win.VK_SPACE)
+			paused = !paused
+			if paused {
+				play.SetText(u.t("Continuar", "Resume"))
+			} else {
+				play.SetText(u.t("Pausar", "Pause"))
+			}
+		}},
+		PushButton{Text: "−10 s", OnClicked: func() { key(win.VK_LEFT) }},
+		PushButton{Text: "+10 s", OnClicked: func() { key(win.VK_RIGHT) }},
+		PushButton{Text: u.t("Ativar/desativar som", "Toggle sound"), OnClicked: func() { key('M') }},
+		HSpacer{},
+	}}}
+	u.skin(row, u.colors().panel, nil)
+	if err := row[0].Create(NewBuilder(panel)); err != nil {
+		u.stopPreview()
+		u.error(err)
+		return
+	}
+	initialSize := u.videoBounds(frame)
+	caption := fmt.Sprintf("VODCut-%d-%d", os.Getpid(), time.Now().UnixNano())
 	go func() {
 		player, err := playerPath()
-		if err == nil {
-			args := []string{"-loglevel", "error", "-autoexit", "-x", "800", "-window_title", caption}
-			if startOffset > 0.05 {
-				args = append(args, "-ss", fmt.Sprintf("%.3f", startOffset))
-			}
-			args = append(args, path)
+		if err == nil && ctx.Err() == nil {
+			args := []string{"-loglevel", "error", "-autoexit", "-noborder", "-x", strconv.Itoa(max(1, initialSize.Width)), "-y", strconv.Itoa(max(1, initialSize.Height)), "-left", "-32000", "-top", "-32000", "-window_title", caption, "-ss", fmt.Sprintf("%.3f", offset), path}
 			cmd := exec.CommandContext(ctx, player, args...)
 			cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NO_WINDOW}
-			var diagnostic []byte
-			diagnostic, err = cmd.CombinedOutput()
-			if err != nil && len(diagnostic) > 0 {
-				err = fmt.Errorf("%w\n%s", err, diagnostic)
+			var diagnostic bytes.Buffer
+			cmd.Stderr = &diagnostic
+			if err = cmd.Start(); err == nil {
+				done := make(chan error, 1)
+				go func() { done <- cmd.Wait() }()
+				err = attachPlayer(ctx, cmd, done, caption, func(hwnd win.HWND) {
+					window.Synchronize(func() {
+						if ctx.Err() != nil {
+							return
+						}
+						win.SetWindowLongPtr(hwnd, win.GWL_STYLE, (win.GetWindowLongPtr(hwnd, win.GWL_STYLE)&^uintptr(win.WS_POPUP))|win.WS_CHILD)
+						win.SetParent(hwnd, frame.Handle())
+						if win.GetParent(hwnd) != frame.Handle() {
+							cmd.Process.Kill()
+							return
+						}
+						child = hwnd
+						fit()
+						controls.SetEnabled(true)
+					})
+				})
+			}
+			if err != nil && diagnostic.Len() > 0 {
+				err = fmt.Errorf("%w\n%s", err, diagnostic.String())
 			}
 		}
 		if ctx.Err() != nil {
 			return
 		}
 		window.Synchronize(func() {
+			if ctx.Err() != nil {
+				return
+			}
+			u.stopPreview()
 			if err != nil {
 				u.error(err)
 			} else {
@@ -126,4 +195,36 @@ func (u *desk) portablePreview(path string, startOffset float64) {
 			}
 		})
 	}()
+}
+
+// FFplay creates its SDL window after decoding starts. Keep it offscreen until
+// it is attached and verify the process before handing its handle to the UI.
+func attachPlayer(ctx context.Context, cmd *exec.Cmd, done <-chan error, caption string, attach func(win.HWND)) error {
+	ticker := time.NewTicker(25 * time.Millisecond)
+	defer ticker.Stop()
+	timer := time.NewTimer(15 * time.Second)
+	defer timer.Stop()
+	name := syscall.StringToUTF16Ptr(caption)
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			return <-done
+		case <-timer.C:
+			cmd.Process.Kill()
+			<-done
+			return errors.New("Não foi possível iniciar o reprodutor embutido.")
+		case <-ticker.C:
+			h := win.FindWindow(nil, name)
+			var pid uint32
+			if h != 0 {
+				win.GetWindowThreadProcessId(h, &pid)
+			}
+			if h != 0 && int(pid) == cmd.Process.Pid {
+				attach(h)
+				return <-done
+			}
+		}
+	}
 }

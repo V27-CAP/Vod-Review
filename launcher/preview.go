@@ -1,12 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
+
 	"syscall"
 	"time"
 	"unsafe"
@@ -53,6 +53,18 @@ func round3(v float64) float64 {
 	return math.Round(v*1000) / 1000
 }
 
+func (u *desk) stopPreview() {
+	if u.previewCancel == nil {
+		return
+	}
+	cancel := u.previewCancel
+	u.previewCancel = nil
+	cancel()
+	u.previewHost.SetVisible(false)
+	u.image.SetVisible(true)
+	u.preview.SetText(u.t("Reproduzir", "Play"))
+}
+
 func (u *desk) playPreview(res PreviewResult, clip Clip) {
 	t := u.t
 	previewStart := res.PreviewStart
@@ -66,11 +78,11 @@ func (u *desk) playPreview(res PreviewResult, clip Clip) {
 	clipPeak := clip.Peak
 	totalDuration := u.project.Meta.Duration
 
-	var dlg *walk.Dialog
+	var panel, nativeControls *walk.Composite
 	var frame *walk.Composite
 	var timeLabel, markLabel *walk.Label
 	var seekSlider, volSlider *walk.Slider
-	var playPauseBtn, muteBtn, closeButton *walk.PushButton
+	var playPauseBtn, muteBtn *walk.PushButton
 	var speedBox *walk.ComboBox
 
 	speedLabels := []string{"0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"}
@@ -94,8 +106,8 @@ func (u *desk) playPreview(res PreviewResult, clip Clip) {
 
 	fit := func() {
 		if frame != nil {
-			s := frame.ClientBoundsPixels()
-			mci(fmt.Sprintf("put vodcutpreview window at 0 0 %d %d", s.Width, s.Height))
+			r := u.videoBounds(frame)
+			mci(fmt.Sprintf("put vodcutpreview window at %d %d %d %d", r.X, r.Y, r.Width, r.Height))
 		}
 	}
 	applyAudio := func() {
@@ -209,152 +221,160 @@ func (u *desk) playPreview(res PreviewResult, clip Clip) {
 		return round3(previewStart + float64(currentPosMs)/1000.0)
 	}
 
-	err := u.dialog(Dialog{
-		AssignTo:     &dlg,
-		Title:        t("Prévia do corte · ", "Clip preview · ") + clip.Name,
-		Size:         Size{Width: 820, Height: 560},
-		MinSize:      Size{Width: 660, Height: 460},
-		Layout:       VBox{Margins: Margins{12, 10, 12, 10}, Spacing: 6},
-		CancelButton: &closeButton,
-		OnKeyDown:    handleKey,
+	u.stopPreview()
+	view := Composite{AssignTo: &panel, Layout: VBox{MarginsZero: true, Spacing: 3},
 		Children: []Widget{
 			Composite{
 				AssignTo:      &frame,
 				Background:    solid(walk.RGB(16, 16, 18)),
-				MinSize:       Size{Width: 420, Height: 240},
+				MinSize:       Size{Height: 170},
 				StretchFactor: 4,
 				Layout:        VBox{},
 				OnSizeChanged: fit,
 				OnKeyDown:     handleKey,
 			},
-			Label{
+			Composite{AssignTo: &nativeControls, Layout: VBox{MarginsZero: true, Spacing: 2}, Children: []Widget{Label{
 				AssignTo: &timeLabel,
 				Font:     font(9, true),
 				NoPrefix: true,
 				Text:     "",
 			},
-			Slider{
-				AssignTo:  &seekSlider,
-				MinValue:  0,
-				MaxValue:  sliderMax,
-				Value:     currentPosMs / 100,
-				OnKeyDown: handleKey,
-				OnValueChanged: func() {
-					if syncing {
-						return
-					}
-					seekToMs(seekSlider.Value() * 100)
-				},
-			},
-			Composite{Layout: HBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
-				PushButton{AssignTo: &playPauseBtn, Text: t("Pausar (Espaço)", "Pause (Space)"), OnClicked: func() {
-					togglePlay()
-					refocusSeek()
-				}},
-				PushButton{Text: "-5s", OnClicked: func() { jumpRelative(-5000) }},
-				PushButton{Text: "+5s", OnClicked: func() { jumpRelative(5000) }},
-				PushButton{Text: t("Ir ao início", "Jump to start"), OnClicked: func() {
-					seekToMs(int(math.Round(math.Max(0, clipStart-previewStart) * 1000)))
-					refocusSeek()
-				}},
-				PushButton{Text: t("Ir ao pico", "Jump to peak"), OnClicked: func() {
-					seekToMs(int(math.Round(math.Max(0, clipPeak-previewStart) * 1000)))
-					refocusSeek()
-				}},
-				HSpacer{},
-			}},
-			Composite{Layout: HBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
-				Label{Text: t("Velocidade:", "Speed:")},
-				ComboBox{
-					AssignTo:     &speedBox,
-					Model:        speedLabels,
-					CurrentIndex: 2, // 1.0x
-					MaxSize:      Size{Width: 78},
-					OnCurrentIndexChanged: func() {
-						idx := speedBox.CurrentIndex()
-						if idx >= 0 && idx < len(speedValues) {
-							currentSpeed = speedValues[idx]
-							applySpeed()
-						}
-						refocusSeek()
-					},
-				},
-				PushButton{AssignTo: &muteBtn, Text: t("Mudo", "Mute"), OnClicked: func() {
-					muted = !muted
-					if muted {
-						muteBtn.SetText(t("Som", "Unmute"))
-					} else {
-						muteBtn.SetText(t("Mudo", "Mute"))
-					}
-					applyAudio()
-					refocusSeek()
-				}},
-				Label{Text: t("Volume:", "Volume:")},
 				Slider{
-					AssignTo:  &volSlider,
+					AssignTo:  &seekSlider,
 					MinValue:  0,
-					MaxValue:  100,
-					Value:     100,
-					MaxSize:   Size{Width: 140},
+					MaxValue:  sliderMax,
+					Value:     currentPosMs / 100,
 					OnKeyDown: handleKey,
 					OnValueChanged: func() {
-						currentVolume = volSlider.Value()
-						if currentVolume > 0 && muted {
-							muted = false
+						if syncing {
+							return
+						}
+						seekToMs(seekSlider.Value() * 100)
+					},
+				},
+				Composite{Layout: HBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
+					PushButton{AssignTo: &playPauseBtn, Text: t("Pausar (Espaço)", "Pause (Space)"), OnClicked: func() {
+						togglePlay()
+						refocusSeek()
+					}},
+					PushButton{Text: "-5s", OnClicked: func() { jumpRelative(-5000) }},
+					PushButton{Text: "+5s", OnClicked: func() { jumpRelative(5000) }},
+					PushButton{Text: t("Ir ao início", "Jump to start"), OnClicked: func() {
+						seekToMs(int(math.Round(math.Max(0, clipStart-previewStart) * 1000)))
+						refocusSeek()
+					}},
+					PushButton{Text: t("Ir ao pico", "Jump to peak"), OnClicked: func() {
+						seekToMs(int(math.Round(math.Max(0, clipPeak-previewStart) * 1000)))
+						refocusSeek()
+					}},
+					HSpacer{},
+				}},
+				Composite{Layout: HBox{MarginsZero: true, Spacing: 8}, Children: []Widget{
+					Label{Text: t("Velocidade:", "Speed:")},
+					ComboBox{
+						AssignTo:     &speedBox,
+						Model:        speedLabels,
+						CurrentIndex: 2, // 1.0x
+						MaxSize:      Size{Width: 78},
+						OnCurrentIndexChanged: func() {
+							idx := speedBox.CurrentIndex()
+							if idx >= 0 && idx < len(speedValues) {
+								currentSpeed = speedValues[idx]
+								applySpeed()
+							}
+							refocusSeek()
+						},
+					},
+					PushButton{AssignTo: &muteBtn, Text: t("Mudo", "Mute"), OnClicked: func() {
+						muted = !muted
+						if muted {
+							muteBtn.SetText(t("Som", "Unmute"))
+						} else {
 							muteBtn.SetText(t("Mudo", "Mute"))
 						}
 						applyAudio()
+						refocusSeek()
+					}},
+					Label{Text: t("Volume:", "Volume:")},
+					Slider{
+						AssignTo:  &volSlider,
+						MinValue:  0,
+						MaxValue:  100,
+						Value:     100,
+						MaxSize:   Size{Width: 140},
+						OnKeyDown: handleKey,
+						OnValueChanged: func() {
+							currentVolume = volSlider.Value()
+							if currentVolume > 0 && muted {
+								muted = false
+								muteBtn.SetText(t("Mudo", "Mute"))
+							}
+							applyAudio()
+						},
 					},
+					HSpacer{},
+				}},
+				Composite{Layout: HBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
+					PushButton{Text: t("Marcar início aqui", "Mark start here"), OnClicked: func() {
+						vodTime := currentVodTime()
+						if vodTime > clipPeak {
+							walk.MsgBox(u.mw, title, t("O início precisa ficar antes ou no pico do corte.", "Start must be at or before the clip peak."), walk.MsgBoxIconWarning)
+							refocusSeek()
+							return
+						}
+						clipStart = vodTime
+						_ = u.start.SetValue(clipStart)
+						updateReadout(currentPosMs)
+						markLabel.SetText(fmt.Sprintf(t("Início marcado em %s · Salve para aplicar.", "Start marked at %s · Save to apply."), clockPrecise(clipStart)))
+						refocusSeek()
+					}},
+					PushButton{Text: t("Marcar fim aqui", "Mark end here"), OnClicked: func() {
+						vodTime := currentVodTime()
+						if vodTime <= clipPeak || vodTime > totalDuration+0.0001 {
+							walk.MsgBox(u.mw, title, t("O fim precisa ficar após o pico e dentro da duração do vídeo.", "End must be after the clip peak and inside the video duration."), walk.MsgBoxIconWarning)
+							refocusSeek()
+							return
+						}
+						clipEnd = vodTime
+						_ = u.end.SetValue(clipEnd)
+						updateReadout(currentPosMs)
+						markLabel.SetText(fmt.Sprintf(t("Fim marcado em %s · Salve para aplicar.", "End marked at %s · Save to apply."), clockPrecise(clipEnd)))
+						refocusSeek()
+					}},
+					HSpacer{},
+				}},
+				Label{
+					AssignTo: &markLabel,
+					NoPrefix: true,
+					Text:     t("Dica: Espaço pausa/reproduz · Setas ←/→ pulam -5s/+5s.", "Tip: Space plays/pauses · Left/Right arrows seek -5s/+5s."),
 				},
-				HSpacer{},
-			}},
-			Composite{Layout: HBox{MarginsZero: true, Spacing: 6}, Children: []Widget{
-				PushButton{Text: t("Marcar início aqui", "Mark start here"), OnClicked: func() {
-					vodTime := currentVodTime()
-					if vodTime > clipPeak {
-						walk.MsgBox(dlg, title, t("O início precisa ficar antes ou no pico do corte.", "Start must be at or before the clip peak."), walk.MsgBoxIconWarning)
-						refocusSeek()
-						return
-					}
-					clipStart = vodTime
-					_ = u.start.SetValue(clipStart)
-					updateReadout(currentPosMs)
-					markLabel.SetText(fmt.Sprintf(t("Início marcado em %s (clique em Salvar ajustes ou Aprovar na janela principal).", "Start marked at %s (click Save edits or Approve in the main window)."), clockPrecise(clipStart)))
-					refocusSeek()
-				}},
-				PushButton{Text: t("Marcar fim aqui", "Mark end here"), OnClicked: func() {
-					vodTime := currentVodTime()
-					if vodTime <= clipPeak || vodTime > totalDuration+0.0001 {
-						walk.MsgBox(dlg, title, t("O fim precisa ficar após o pico e dentro da duração do vídeo.", "End must be after the clip peak and inside the video duration."), walk.MsgBoxIconWarning)
-						refocusSeek()
-						return
-					}
-					clipEnd = vodTime
-					_ = u.end.SetValue(clipEnd)
-					updateReadout(currentPosMs)
-					markLabel.SetText(fmt.Sprintf(t("Fim marcado em %s (clique em Salvar ajustes ou Aprovar na janela principal).", "End marked at %s (click Save edits or Approve in the main window)."), clockPrecise(clipEnd)))
-					refocusSeek()
-				}},
-				HSpacer{},
-				PushButton{AssignTo: &closeButton, Text: t("Fechar", "Close"), OnClicked: func() { dlg.Cancel() }},
-			}},
-			Label{
-				AssignTo: &markLabel,
-				NoPrefix: true,
-				Text:     t("Dica: Espaço pausa/reproduz · Setas ←/→ pulam -5s/+5s.", "Tip: Space plays/pauses · Left/Right arrows seek -5s/+5s."),
 			},
-		},
-	}).Create(u.mw)
+			}}}
+	widgets := []Widget{view}
+	u.skin(widgets, u.colors().panel, nil)
+	err := widgets[0].Create(NewBuilder(u.previewHost))
 	if err != nil {
 		u.error(err)
 		return
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	opened := false
+	u.previewCancel = func() {
+		cancel()
+		if opened {
+			mci("close vodcutpreview")
+		}
+		panel.Dispose()
+	}
+	u.image.SetVisible(false)
+	u.previewHost.SetVisible(true)
+	u.preview.SetText(t("Parar prévia", "Stop preview"))
 	if !mci(fmt.Sprintf("open \"%s\" type mpegvideo alias vodcutpreview parent %d style child", res.Path, frame.Handle())) {
-		dlg.Dispose()
-		u.portablePreview(res.Path, math.Max(0, clipStart-previewStart))
+		nativeControls.SetVisible(false)
+		u.portablePreview(ctx, frame, panel, res.Path, math.Max(0, clipStart-previewStart))
 		return
 	}
-	defer mci("close vodcutpreview")
+	opened = true
 
 	mci("set vodcutpreview time format milliseconds")
 	if lenStr, ok := mciQuery("status vodcutpreview length"); ok {
@@ -365,76 +385,63 @@ func (u *desk) playPreview(res PreviewResult, clip Clip) {
 		}
 	}
 
-	stopTick := make(chan struct{})
-	var stopOnce sync.Once
-	var closed atomic.Bool
-	stopAll := func() {
-		closed.Store(true)
-		stopOnce.Do(func() { close(stopTick) })
+	fit()
+	mci("window vodcutpreview state show")
+	applyAudio()
+	applySpeed()
+	if currentPosMs > 0 && currentPosMs < lengthMs {
+		mci(fmt.Sprintf("play vodcutpreview from %d", currentPosMs))
+	} else {
+		currentPosMs = 0
+		mci("play vodcutpreview from 0")
 	}
-	dlg.Closing().Attach(func(_ *bool, _ walk.CloseReason) {
-		stopAll()
-	})
-	dlg.Starting().Attach(func() {
-		fit()
-		mci("window vodcutpreview state show")
-		applyAudio()
-		applySpeed()
-		if currentPosMs > 0 && currentPosMs < lengthMs {
-			mci(fmt.Sprintf("play vodcutpreview from %d", currentPosMs))
-		} else {
-			currentPosMs = 0
-			mci("play vodcutpreview from 0")
-		}
-		updateReadout(currentPosMs)
-		updatePlayButton()
-		refocusSeek()
+	updateReadout(currentPosMs)
+	updatePlayButton()
+	refocusSeek()
 
-		go func() {
-			ticker := time.NewTicker(150 * time.Millisecond)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-stopTick:
+	window := u.mw
+	go func() {
+		ticker := time.NewTicker(150 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if ctx.Err() != nil {
 					return
-				case <-ticker.C:
-					if closed.Load() {
+				}
+				window.Synchronize(func() {
+					if ctx.Err() != nil {
 						return
 					}
-					dlg.Synchronize(func() {
-						if closed.Load() {
-							return
+					posStr, okPos := mciQuery("status vodcutpreview position")
+					modeStr, okMode := mciQuery("status vodcutpreview mode")
+					if okMode {
+						isP := strings.EqualFold(strings.TrimSpace(modeStr), "playing")
+						if isP != playing {
+							playing = isP
+							updatePlayButton()
 						}
-						posStr, okPos := mciQuery("status vodcutpreview position")
-						modeStr, okMode := mciQuery("status vodcutpreview mode")
-						if okMode {
-							isP := strings.EqualFold(strings.TrimSpace(modeStr), "playing")
-							if isP != playing {
-								playing = isP
-								updatePlayButton()
+					}
+					if okPos {
+						if ms, err := strconv.Atoi(strings.TrimSpace(posStr)); err == nil {
+							currentPosMs = ms
+							syncing = true
+							val := ms / 100
+							if val < 0 {
+								val = 0
 							}
-						}
-						if okPos {
-							if ms, err := strconv.Atoi(strings.TrimSpace(posStr)); err == nil {
-								currentPosMs = ms
-								syncing = true
-								val := ms / 100
-								if val < 0 {
-									val = 0
-								}
-								if val > sliderMax {
-									val = sliderMax
-								}
-								seekSlider.SetValue(val)
-								syncing = false
-								updateReadout(ms)
+							if val > sliderMax {
+								val = sliderMax
 							}
+							seekSlider.SetValue(val)
+							syncing = false
+							updateReadout(ms)
 						}
-					})
-				}
+					}
+				})
 			}
-		}()
-	})
-	dlg.Run()
-	stopAll()
+		}
+	}()
 }
